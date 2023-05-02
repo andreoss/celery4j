@@ -1,0 +1,33 @@
+{
+  "body": "W1syLCAyXSwge30sIHsiY2FsbGJhY2tzIjogbnVsbCwgImVycmJhY2tzIjogbnVsbCwgImNoYWluIjogbnVsbCwgImNob3JkIjogbnVsbH1d",
+  "content-encoding": "utf-8",
+  "content-type": "application/json",
+  "headers": {
+    "lang": "py",
+    "task": "proj.tasks.add",
+    "id": "6ad689d4-3e0e-4b57-a1cf-4a2f0cca5c53",
+    "root_id": "6ad689d4-3e0e-4b57-a1cf-4a2f0cca5c53",
+    "parent_id": null,
+    "group": null,
+    "shadow": null,
+    "eta": null,
+    "expires": null,
+    "retries": 0,
+    "timelimit": [null, null],
+    "argsrepr": "(2, 2)",
+    "kwargsrepr": "{}",
+    "origin": "1@node"
+  },
+  "properties": {
+    "correlation_id": "6ad689d4-3e0e-4b57-a1cf-4a2f0cca5c53",
+    "reply_to": "0f3a1b6b-2f2f-4a1e-9b64-7b0a1f4a1d31",
+    "delivery_tag": "5a2a2f07-0f2b-4f0a-9a3c-6d2f0f1a2b3c",
+    "body_encoding": "base64",
+    "delivery_mode": 2,
+    "priority": 0,
+    "delivery_info": {
+      "exchange": "",
+      "routing_key": "celery"
+    }
+  }
+}

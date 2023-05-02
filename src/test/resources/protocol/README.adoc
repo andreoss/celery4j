@@ -1,0 +1,11 @@
+= Protocol fixtures
+
+- `v2-documented-example.json` is an instance of the version two layout as the
+  published protocol document defines it: the task named in the headers, the
+  body a three part array of args, kwargs and embedded fields, carried as
+  base64. It is written from the document, not captured, and it is replaced by
+  a capture once INT-04 records one.
+
+A fixture is never edited to make a test pass. A test that disagrees with a
+fixture is either a defect in the code or a defect in the fixture's
+provenance, and the second is fixed by capturing the message again.
