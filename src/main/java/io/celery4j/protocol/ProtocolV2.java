@@ -21,7 +21,7 @@ import java.util.function.Supplier;
  *
  * @since 0.1.0
  */
-public final class ProtocolV2 {
+public final class ProtocolV2 implements Protocol {
 
     /**
      * Value of the language header for tasks produced here.
@@ -75,27 +75,16 @@ public final class ProtocolV2 {
         this.origin = origin;
     }
 
-    /**
-     * Build the message that asks for a task to be run.
-     *
-     * @param task Task to run
-     * @param queue Queue the task is routed to
-     * @return The message a broker carries
-     * @throws ProtocolException If the body cannot be written
-     */
+    @Override
     public Message message(final Task task, final String queue) throws ProtocolException {
         return new Message(
-            this.properties(task, queue), this.headers(task), this.bodies.encode(task.body())
+            new Deliveries(this.ids).properties(task.id(), queue),
+            this.headers(task),
+            this.bodies.encode(task.body())
         );
     }
 
-    /**
-     * Read the task a message asks for.
-     *
-     * @param message Message a broker delivered
-     * @return The task that message asks for
-     * @throws ProtocolException If the message is no task of this version
-     */
+    @Override
     public Task task(final Message message) throws ProtocolException {
         final TaskBody body = this.bodies.decode(message.body());
         return new Task(message.id(), message.task(), body.args(), body.kwargs());
@@ -151,23 +140,6 @@ public final class ProtocolV2 {
         values.put(MessageHeaders.TIMELIMIT, Arrays.asList(null, null));
         values.put(MessageHeaders.ORIGIN, this.origin);
         return new MessageHeaders(values);
-    }
-
-    private MessageProperties properties(final Task task, final String queue) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put(MessageProperties.CORRELATION, task.id());
-        values.put(MessageProperties.REPLY, this.ids.get());
-        values.put(MessageProperties.TAG, this.ids.get());
-        values.put(MessageProperties.WRAPPING, MessageProperties.BASE64);
-        values.put(MessageProperties.MODE, MessageProperties.PERSISTENT);
-        values.put(MessageProperties.PRIORITY, 0);
-        values.put(
-            MessageProperties.DELIVERY,
-            Map.of(MessageProperties.EXCHANGE, "", MessageProperties.ROUTING, queue)
-        );
-        values.put(MessageProperties.TYPE, MessageProperties.JSON);
-        values.put(MessageProperties.ENCODING, MessageProperties.UTF8);
-        return new MessageProperties(values);
     }
 
     private static String uuid() {
