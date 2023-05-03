@@ -4,6 +4,7 @@
  */
 package io.celery4j.protocol;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -220,6 +221,47 @@ final class ProtocolV2Test {
     @Test
     void namesTheHostItWasGiven() {
         Assertions.assertTrue(ProtocolV2.node("box").endsWith("@box"));
+    }
+
+    @Test
+    void schedulesAMessageToStartLater() {
+        Assertions.assertEquals(
+            Optional.of("2026-09-19T13:00:00Z"),
+            new Schedule(ProtocolV2Test.message().headers())
+                .at(Instant.parse("2026-09-19T13:00:00Z"))
+                .text(MessageHeaders.ETA)
+        );
+    }
+
+    @Test
+    void limitsHowLongAMessageIsWorthRunning() {
+        Assertions.assertEquals(
+            Optional.of("2026-09-19T14:00:00Z"),
+            new Schedule(ProtocolV2Test.message().headers())
+                .until(Instant.parse("2026-09-19T14:00:00Z"))
+                .text(MessageHeaders.EXPIRES)
+        );
+    }
+
+    @Test
+    void keepsTheOtherHeadersWhenScheduling() {
+        Assertions.assertEquals(
+            ProtocolV2Test.NAME,
+            new Schedule(ProtocolV2Test.message().headers())
+                .at(Instant.parse("2026-09-19T13:00:00Z"))
+                .task()
+        );
+    }
+
+    @Test
+    void carriesEmbeddedWorkflowFieldsThroughACycle() {
+        final TaskBodyCodec codec = new JsonTaskBody();
+        final TaskBody body = new TaskBody(
+            List.of(),
+            Map.of(),
+            Map.of(TaskBody.CHAIN, List.of("next"), TaskBody.CHORD, "after")
+        );
+        Assertions.assertEquals(body.embed(), codec.decode(codec.encode(body)).embed());
     }
 
     private static Message message() {
