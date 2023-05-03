@@ -1,0 +1,148 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2023
+ * SPDX-License-Identifier: MIT
+ */
+package io.celery4j.transport;
+
+import io.celery4j.protocol.Message;
+import io.celery4j.protocol.ProtocolV2;
+import io.celery4j.protocol.Task;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+/**
+ * What every broker promises, whichever store carries the queues.
+ *
+ * <p>Each case works on a queue of its own, so that what one case leaves
+ * behind cannot be read by another.</p>
+ *
+ * @since 0.1.0
+ */
+interface BrokerContract {
+
+    /**
+     * How long a receive waits for a message that should be there.
+     */
+    Duration WAIT = Duration.ofSeconds(2);
+
+    /**
+     * How long a receive waits for a message that should not be.
+     */
+    Duration GLANCE = Duration.ofMillis(300);
+
+    /**
+     * A broker to test.
+     *
+     * @return The broker
+     */
+    Broker broker();
+
+    /**
+     * The name the queues of these cases start with.
+     *
+     * @return Name of the queue
+     */
+    String queue();
+
+    /**
+     * A broker delivers what it was sent.
+     */
+    @Test
+    default void deliversWhatItWasSent() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("sent");
+            final Message sent = this.message("proj.tasks.add", queue);
+            broker.send(sent, queue);
+            Assertions.assertEquals(
+                Optional.of(sent), broker.receive(queue, BrokerContract.WAIT)
+            );
+        }
+    }
+
+    /**
+     * A broker reports an empty queue rather than waiting on.
+     */
+    @Test
+    default void deliversNothingFromAnEmptyQueue() {
+        try (Broker broker = this.broker()) {
+            Assertions.assertEquals(
+                Optional.empty(), broker.receive(this.queue("empty"), BrokerContract.GLANCE)
+            );
+        }
+    }
+
+    /**
+     * A message sent to one queue is not delivered from another.
+     */
+    @Test
+    default void keepsQueuesApart() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("apart");
+            broker.send(this.message("proj.tasks.add", queue), queue);
+            Assertions.assertEquals(
+                Optional.empty(),
+                broker.receive(this.queue("apart-other"), BrokerContract.GLANCE)
+            );
+        }
+    }
+
+    /**
+     * A broker delivers messages in the order it took them.
+     */
+    @Test
+    default void deliversInTheOrderItTookThem() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("order");
+            broker.send(this.message("proj.tasks.first", queue), queue);
+            broker.send(this.message("proj.tasks.second", queue), queue);
+            Assertions.assertEquals(
+                "proj.tasks.first",
+                broker.receive(queue, BrokerContract.WAIT).orElseThrow().task()
+            );
+        }
+    }
+
+    /**
+     * A message keeps the parameters of its task across the wire.
+     */
+    @Test
+    default void keepsTheParametersOfATask() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("params");
+            broker.send(this.message("proj.tasks.add", queue), queue);
+            Assertions.assertEquals(
+                List.of(2, 2),
+                new ProtocolV2()
+                    .task(broker.receive(queue, BrokerContract.WAIT).orElseThrow())
+                    .args()
+            );
+        }
+    }
+
+    /**
+     * The queue a case works on.
+     *
+     * @param suffix What tells this case apart from the others
+     * @return Name of the queue
+     */
+    default String queue(final String suffix) {
+        return String.format("%s-%s", this.queue(), suffix);
+    }
+
+    /**
+     * A message asking for a task.
+     *
+     * @param name Name of the task
+     * @param queue Queue it is routed to
+     * @return The message
+     */
+    default Message message(final String name, final String queue) {
+        return new ProtocolV2().message(
+            new Task("task-one", name, List.of(2, 2), Map.of()), queue
+        );
+    }
+}
