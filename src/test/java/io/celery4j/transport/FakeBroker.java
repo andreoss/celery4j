@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  *
  * @since 0.1.0
  */
-final class FakeBroker implements Broker {
+public final class FakeBroker implements Broker {
 
     /**
      * Queues by name.
@@ -36,7 +36,7 @@ final class FakeBroker implements Broker {
      * @param queues Queues by name
      * @param names Names a queue is known by
      */
-    FakeBroker(final Map<String, Deque<Message>> queues, final Queues names) {
+    public FakeBroker(final Map<String, Deque<Message>> queues, final Queues names) {
         this.queues = queues;
         this.names = names;
     }

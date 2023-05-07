@@ -13,7 +13,7 @@ import java.util.Optional;
  *
  * @since 0.1.0
  */
-final class FakeBackend implements Backend {
+public final class FakeBackend implements Backend {
 
     /**
      * Results by task identifier.
@@ -25,7 +25,7 @@ final class FakeBackend implements Backend {
      *
      * @param held Results by task identifier
      */
-    FakeBackend(final Map<String, TaskResult> held) {
+    public FakeBackend(final Map<String, TaskResult> held) {
         this.held = held;
     }
 
