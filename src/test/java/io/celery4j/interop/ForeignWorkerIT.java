@@ -162,7 +162,8 @@ final class ForeignWorkerIT {
     private static ImageFromDockerfile image() {
         return new ImageFromDockerfile()
             .withFileFromClasspath("Dockerfile", "live/Dockerfile")
-            .withFileFromClasspath("tasks.py", "live/tasks.py");
+            .withFileFromClasspath("tasks.py", "live/tasks.py")
+            .withFileFromClasspath("producer.py", "live/producer.py");
     }
 
     private static JedisPool pool() {
