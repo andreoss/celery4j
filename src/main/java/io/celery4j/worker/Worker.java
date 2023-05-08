@@ -5,7 +5,9 @@
 package io.celery4j.worker;
 
 import io.celery4j.protocol.Message;
+import io.celery4j.protocol.MessageHeaders;
 import io.celery4j.protocol.Protocols;
+import io.celery4j.protocol.Schedule;
 import io.celery4j.protocol.Task;
 import io.celery4j.result.Backend;
 import io.celery4j.result.State;
@@ -15,6 +17,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -32,6 +35,10 @@ import java.util.concurrent.CompletionException;
  * <p>A task that raises leaves a failure behind rather than nothing, and a
  * name nobody registered leaves a failure too. Either way the result is
  * published, so that whoever asked for the task learns what became of it.</p>
+ *
+ * <p>A task whose start time has not come is sent back to the queue untouched,
+ * and one that stopped being worth running is recorded as called off without
+ * being run at all.</p>
  *
  * @since 0.1.0
  */
@@ -83,7 +90,7 @@ public final class Worker {
     private final Protocols protocols;
 
     /**
-     * Clock the results are stamped with.
+     * Clock the results are stamped with and the schedules judged against.
      */
     private final Clock clock;
 
@@ -126,12 +133,14 @@ public final class Worker {
      *
      * @param queue Queue to read from
      * @param timeout How long to wait for a message
-     * @return The result that was published, empty when no message arrived
+     * @return The result that was published, empty when no message arrived or
+     *  when the one that did is not due yet
      * @throws WorkerException If the message cannot be read as a task
      */
     public Optional<TaskResult> once(final String queue, final Duration timeout)
         throws WorkerException {
-        return this.broker.receive(queue, timeout).map(this::handle);
+        return this.broker.receive(queue, timeout)
+            .flatMap(message -> this.handle(message, queue));
     }
 
     /**
@@ -157,17 +166,49 @@ public final class Worker {
         return List.copyOf(published);
     }
 
-    private TaskResult handle(final Message message) {
-        final TaskResult result = this.outcome(this.protocols.task(message));
+    private Optional<TaskResult> handle(final Message message, final String queue) {
+        final Schedule schedule = new Schedule(message.headers());
+        final Instant now = this.clock.instant();
+        final Optional<TaskResult> published;
+        if (schedule.expired(now)) {
+            published = Optional.of(
+                this.store(this.ended(this.protocols.task(message), State.REVOKED))
+            );
+        } else if (schedule.due(now)) {
+            published = Optional.of(
+                this.store(
+                    this.outcome(
+                        new Envelope(message, queue, this.protocols.task(message))
+                    )
+                )
+            );
+        } else {
+            this.broker.send(message, queue);
+            published = Optional.empty();
+        }
+        return published;
+    }
+
+    private TaskResult store(final TaskResult result) {
         this.backend.store(result);
         return result;
     }
 
-    private TaskResult outcome(final Task task) {
-        return CompletableFuture
-            .supplyAsync(() -> this.registry.of(task.name()).run(task), Runnable::run)
-            .handle((value, failure) -> this.result(task, value, failure))
+    private TaskResult outcome(final Envelope envelope) {
+        final TaskResult result = this.running(envelope)
+            .handle((value, failure) -> this.result(envelope.task(), value, failure))
             .join();
+        if (State.RETRY.equals(result.state().name())) {
+            this.broker.send(Worker.again(envelope.message()), envelope.queue());
+        }
+        return result;
+    }
+
+    private CompletableFuture<Object> running(final Envelope envelope) {
+        return CompletableFuture.supplyAsync(
+            () -> this.registry.of(envelope.task().name()).run(envelope.task()),
+            Runnable::run
+        );
     }
 
     private TaskResult result(final Task task, final Object value, final Throwable failure) {
@@ -175,26 +216,30 @@ public final class Worker {
         if (failure == null) {
             result = this.succeeded(task, value);
         } else {
-            result = this.failed(task, Worker.cause(failure));
+            result = this.raised(task, Worker.cause(failure));
         }
         return result;
     }
 
+    private TaskResult raised(final Task task, final Throwable failure) {
+        final String state;
+        if (failure instanceof RetryException) {
+            state = State.RETRY;
+        } else {
+            state = State.FAILURE;
+        }
+        return this.ended(task, state)
+            .with(TaskResult.VALUE, Worker.described(failure))
+            .with(TaskResult.TRACEBACK, Worker.text(failure));
+    }
+
     private TaskResult succeeded(final Task task, final Object value) {
-        final Map<String, Object> values = this.fields(task, State.SUCCESS);
-        values.put(TaskResult.VALUE, value);
-        values.put(TaskResult.TRACEBACK, null);
-        return new TaskResult(values);
+        return this.ended(task, State.SUCCESS)
+            .with(TaskResult.VALUE, value)
+            .with(TaskResult.TRACEBACK, null);
     }
 
-    private TaskResult failed(final Task task, final Throwable failure) {
-        final Map<String, Object> values = this.fields(task, State.FAILURE);
-        values.put(TaskResult.VALUE, Worker.raised(failure));
-        values.put(TaskResult.TRACEBACK, Worker.text(failure));
-        return new TaskResult(values);
-    }
-
-    private Map<String, Object> fields(final Task task, final String state) {
+    private TaskResult ended(final Task task, final String state) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put(TaskResult.ID, task.id());
         values.put(TaskResult.STATUS, state);
@@ -205,15 +250,21 @@ public final class Worker {
                 .withZone(ZoneOffset.UTC)
                 .format(this.clock.instant())
         );
-        return values;
+        return new TaskResult(values);
     }
 
-    private static Map<String, Object> raised(final Throwable failure) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put(Worker.TYPE, failure.getClass().getSimpleName());
-        values.put(Worker.MESSAGE, List.of(String.valueOf(failure.getMessage())));
-        values.put(Worker.MODULE, failure.getClass().getPackageName());
-        return values;
+    private static Message again(final Message message) {
+        if (message.headers().text(MessageHeaders.TASK).isEmpty()) {
+            throw new WorkerException("a task can only be retried under protocol two");
+        }
+        return new Message(
+            message.properties(),
+            message.headers().with(
+                MessageHeaders.RETRIES,
+                (int) message.headers().number(MessageHeaders.RETRIES, 0L) + 1
+            ),
+            message.body()
+        );
     }
 
     private static Throwable cause(final Throwable failure) {
@@ -222,6 +273,14 @@ public final class Worker {
             found = failure.getCause();
         }
         return found;
+    }
+
+    private static Map<String, Object> described(final Throwable failure) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put(Worker.TYPE, failure.getClass().getSimpleName());
+        values.put(Worker.MESSAGE, List.of(String.valueOf(failure.getMessage())));
+        values.put(Worker.MODULE, failure.getClass().getPackageName());
+        return values;
     }
 
     private static String text(final Throwable failure) {
