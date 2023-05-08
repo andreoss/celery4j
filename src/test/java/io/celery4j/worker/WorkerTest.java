@@ -8,6 +8,7 @@ import io.celery4j.protocol.Message;
 import io.celery4j.protocol.MessageHeaders;
 import io.celery4j.protocol.MessageProperties;
 import io.celery4j.protocol.ProtocolException;
+import io.celery4j.protocol.ProtocolV1;
 import io.celery4j.protocol.ProtocolV2;
 import io.celery4j.protocol.Protocols;
 import io.celery4j.protocol.Task;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -205,6 +207,163 @@ final class WorkerTest {
             WorkerTest.worker(broker, WorkerTest.adding())
                 .some(WorkerTest.QUEUE, WorkerTest.WAIT, 3)
                 .size()
+        );
+    }
+
+    @Test
+    void sendsBackATaskThatIsNotDueYet() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(
+            WorkerTest.scheduled(MessageHeaders.ETA, "2026-09-19T13:00:00Z"), WorkerTest.QUEUE
+        );
+        Assertions.assertEquals(
+            Optional.empty(),
+            WorkerTest.worker(broker, WorkerTest.adding()).once(WorkerTest.QUEUE, WorkerTest.WAIT)
+        );
+    }
+
+    @Test
+    void keepsATaskThatIsNotDueYetOnTheQueue() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(
+            WorkerTest.scheduled(MessageHeaders.ETA, "2026-09-19T13:00:00Z"), WorkerTest.QUEUE
+        );
+        WorkerTest.worker(broker, WorkerTest.adding()).once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertTrue(broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT).isPresent());
+    }
+
+    @Test
+    void runsATaskWhoseStartTimeHasPassed() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(
+            WorkerTest.scheduled(MessageHeaders.ETA, "2026-09-19T11:00:00Z"), WorkerTest.QUEUE
+        );
+        Assertions.assertEquals(
+            new State(State.SUCCESS),
+            WorkerTest.worker(broker, WorkerTest.adding())
+                .once(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .state()
+        );
+    }
+
+    @Test
+    void callsOffATaskThatStoppedBeingWorthRunning() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(
+            WorkerTest.scheduled(MessageHeaders.EXPIRES, "2026-09-19T11:00:00Z"), WorkerTest.QUEUE
+        );
+        Assertions.assertEquals(
+            new State(State.REVOKED),
+            WorkerTest.worker(broker, WorkerTest.adding())
+                .once(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .state()
+        );
+    }
+
+    @Test
+    void doesNotRunATaskThatStoppedBeingWorthRunning() {
+        final AtomicInteger runs = new AtomicInteger();
+        final Broker broker = WorkerTest.broker();
+        broker.send(
+            WorkerTest.scheduled(MessageHeaders.EXPIRES, "2026-09-19T11:00:00Z"), WorkerTest.QUEUE
+        );
+        WorkerTest.worker(
+            broker,
+            new Registry(Map.of(WorkerTest.NAME, task -> runs.incrementAndGet()))
+        ).once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertEquals(0, runs.get());
+    }
+
+    @Test
+    void marksARetriedTaskAsWaiting() {
+        Assertions.assertEquals(
+            new State(State.RETRY),
+            WorkerTest.handled(WorkerTest.retrying()).orElseThrow().state()
+        );
+    }
+
+    @Test
+    void sendsARetriedTaskBackToItsQueue() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.message(), WorkerTest.QUEUE);
+        WorkerTest.worker(broker, WorkerTest.retrying()).once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertTrue(broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT).isPresent());
+    }
+
+    @Test
+    void raisesTheRetryCountOfATaskItSendsBack() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.message(), WorkerTest.QUEUE);
+        WorkerTest.worker(broker, WorkerTest.retrying()).once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertEquals(
+            1L,
+            broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .headers()
+                .number(MessageHeaders.RETRIES, -1L)
+        );
+    }
+
+    @Test
+    void raisesTheRetryCountAgainOnASecondRetry() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.message(), WorkerTest.QUEUE);
+        final Worker worker = WorkerTest.worker(broker, WorkerTest.retrying());
+        worker.once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        worker.once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertEquals(
+            2L,
+            broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .headers()
+                .number(MessageHeaders.RETRIES, -1L)
+        );
+    }
+
+    @Test
+    void keepsWhatTheRetryAskedFor() {
+        Assertions.assertTrue(
+            WorkerTest.handled(WorkerTest.retrying())
+                .orElseThrow()
+                .traceback()
+                .orElseThrow()
+                .contains("RetryException")
+        );
+    }
+
+    @Test
+    void refusesToRetryATaskOfTheOlderProtocol() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(
+            new ProtocolV1().message(
+                new Task(WorkerTest.ID, WorkerTest.NAME, List.of(2, 2), Map.of()),
+                WorkerTest.QUEUE
+            ),
+            WorkerTest.QUEUE
+        );
+        final Worker worker = WorkerTest.worker(broker, WorkerTest.retrying());
+        Assertions.assertThrows(
+            WorkerException.class, () -> worker.once(WorkerTest.QUEUE, WorkerTest.WAIT)
+        );
+    }
+
+    private static Registry retrying() {
+        return new Registry(
+            Map.of(
+                WorkerTest.NAME,
+                task -> {
+                    throw new RetryException("not yet");
+                }
+            )
+        );
+    }
+
+    private static Message scheduled(final String header, final String time) {
+        final Message message = WorkerTest.message();
+        return new Message(
+            message.properties(), message.headers().with(header, time), message.body()
         );
     }
 
