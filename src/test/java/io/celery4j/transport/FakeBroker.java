@@ -8,7 +8,9 @@ import io.celery4j.protocol.Message;
 import io.celery4j.protocol.MessageProperties;
 import java.time.Duration;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
@@ -52,8 +54,13 @@ public final class FakeBroker implements Broker {
     }
 
     @Override
-    public Optional<Message> receive(final String queue, final Duration timeout) {
-        return Optional.ofNullable(this.queues.get(queue)).map(Deque::pollLast);
+    public Optional<Message> receive(final List<String> from, final Duration timeout) {
+        return from.stream()
+            .map(this.queues::get)
+            .filter(Objects::nonNull)
+            .map(Deque::pollLast)
+            .filter(Objects::nonNull)
+            .findFirst();
     }
 
     @Override

@@ -97,13 +97,13 @@ public final class RedisBroker implements Broker {
     }
 
     @Override
-    public Optional<Message> receive(final String queue, final Duration timeout)
+    public Optional<Message> receive(final List<String> names, final Duration timeout)
         throws TransportException {
         final List<byte[]> popped;
         try (Jedis jedis = this.pool.getResource()) {
-            popped = jedis.brpop(RedisBroker.seconds(timeout), RedisBroker.key(queue));
+            popped = jedis.brpop(RedisBroker.seconds(timeout), RedisBroker.keys(names));
         } catch (final JedisException ex) {
-            throw new TransportException(String.format("queue %s cannot be read", queue), ex);
+            throw new TransportException(String.format("queues %s cannot be read", names), ex);
         }
         final Optional<Message> message;
         if (popped == null || popped.size() < 2) {
@@ -141,6 +141,10 @@ public final class RedisBroker implements Broker {
 
     private static byte[] key(final String name) {
         return name.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[][] keys(final List<String> names) {
+        return names.stream().map(RedisBroker::key).toArray(byte[][]::new);
     }
 
     private static double seconds(final Duration timeout) {
