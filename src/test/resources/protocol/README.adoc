@@ -9,3 +9,8 @@
 A fixture is never edited to make a test pass. A test that disagrees with a
 fixture is either a defect in the code or a defect in the fixture's
 provenance, and the second is fixed by capturing the message again.
+
+- `v2-captured-example.json` is a capture: the bytes a producer of the original
+  implementation wrote to a queue, taken verbatim by the live suite in S08 and
+  committed unchanged. It carries headers this version does not know, which is
+  what makes it worth keeping.
