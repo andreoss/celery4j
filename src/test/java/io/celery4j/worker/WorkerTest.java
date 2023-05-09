@@ -349,6 +349,87 @@ final class WorkerTest {
         );
     }
 
+    @Test
+    void takesTheHighestPriorityFirst() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.message(), WorkerTest.QUEUE);
+        broker.send(
+            WorkerTest.prioritised("task-urgent", 9), WorkerTest.QUEUE
+        );
+        Assertions.assertEquals(
+            "task-urgent",
+            WorkerTest.worker(broker, WorkerTest.adding())
+                .once(new Queues().all(WorkerTest.QUEUE), WorkerTest.WAIT)
+                .orElseThrow()
+                .id()
+        );
+    }
+
+    @Test
+    void readsEveryNameAQueueIsKnownBy() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.prioritised("task-urgent", 6), WorkerTest.QUEUE);
+        Assertions.assertTrue(
+            WorkerTest.worker(broker, WorkerTest.adding())
+                .once(new Queues().all(WorkerTest.QUEUE), WorkerTest.WAIT)
+                .isPresent()
+        );
+    }
+
+    @Test
+    void sendsARetryBackToTheQueueItWasRoutedTo() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.message(), WorkerTest.QUEUE);
+        WorkerTest.worker(broker, WorkerTest.retrying())
+            .once(new Queues().all(WorkerTest.QUEUE), WorkerTest.WAIT);
+        Assertions.assertTrue(
+            broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT).isPresent()
+        );
+    }
+
+    @Test
+    void leavesNoResultWhenNoneIsWanted() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.ignoring(), WorkerTest.QUEUE);
+        final Backend backend = new FakeBackend(new ConcurrentHashMap<>());
+        WorkerTest.worker(broker, backend, WorkerTest.adding())
+            .once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertEquals(Optional.empty(), backend.of(WorkerTest.ID));
+    }
+
+    @Test
+    void stillReportsAResultNobodyWanted() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.ignoring(), WorkerTest.QUEUE);
+        Assertions.assertEquals(
+            Optional.of(4),
+            WorkerTest.worker(broker, WorkerTest.adding())
+                .once(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .value()
+        );
+    }
+
+    private static Message ignoring() {
+        final Message message = WorkerTest.message();
+        return new Message(
+            message.properties(),
+            message.headers().with(MessageHeaders.IGNORE, true),
+            message.body()
+        );
+    }
+
+    private static Message prioritised(final String id, final int priority) {
+        final Message message = new ProtocolV2().message(
+            new Task(id, WorkerTest.NAME, List.of(2, 2), Map.of()), WorkerTest.QUEUE
+        );
+        return new Message(
+            message.properties().with(MessageProperties.PRIORITY, priority),
+            message.headers(),
+            message.body()
+        );
+    }
+
     private static Registry retrying() {
         return new Registry(
             Map.of(

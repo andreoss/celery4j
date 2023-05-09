@@ -6,6 +6,7 @@ package io.celery4j.worker;
 
 import io.celery4j.protocol.Message;
 import io.celery4j.protocol.MessageHeaders;
+import io.celery4j.protocol.MessageProperties;
 import io.celery4j.protocol.Protocols;
 import io.celery4j.protocol.Schedule;
 import io.celery4j.protocol.Task;
@@ -139,8 +140,23 @@ public final class Worker {
      */
     public Optional<TaskResult> once(final String queue, final Duration timeout)
         throws WorkerException {
-        return this.broker.receive(queue, timeout)
-            .flatMap(message -> this.handle(message, queue));
+        return this.once(List.of(queue), timeout);
+    }
+
+    /**
+     * Take one message from the first of these queues that has one and see it
+     * through.
+     *
+     * @param queues Queues to read from, in the order they are served
+     * @param timeout How long to wait for a message
+     * @return The result that was published, empty when no message arrived or
+     *  when the one that did is not due yet
+     * @throws WorkerException If the message cannot be read as a task
+     */
+    public Optional<TaskResult> once(final List<String> queues, final Duration timeout)
+        throws WorkerException {
+        return this.broker.receive(queues, timeout)
+            .flatMap(message -> this.handle(message, Worker.routing(message, queues)));
     }
 
     /**
@@ -172,14 +188,13 @@ public final class Worker {
         final Optional<TaskResult> published;
         if (schedule.expired(now)) {
             published = Optional.of(
-                this.store(this.ended(this.protocols.task(message), State.REVOKED))
+                this.store(message, this.ended(this.protocols.task(message), State.REVOKED))
             );
         } else if (schedule.due(now)) {
             published = Optional.of(
                 this.store(
-                    this.outcome(
-                        new Envelope(message, queue, this.protocols.task(message))
-                    )
+                    message,
+                    this.outcome(new Envelope(message, queue, this.protocols.task(message)))
                 )
             );
         } else {
@@ -189,8 +204,10 @@ public final class Worker {
         return published;
     }
 
-    private TaskResult store(final TaskResult result) {
-        this.backend.store(result);
+    private TaskResult store(final Message message, final TaskResult result) {
+        if (!Worker.ignored(message)) {
+            this.backend.store(result);
+        }
         return result;
     }
 
@@ -251,6 +268,21 @@ public final class Worker {
                 .format(this.clock.instant())
         );
         return new TaskResult(values);
+    }
+
+    private static boolean ignored(final Message message) {
+        return message.headers().asMap().get(MessageHeaders.IGNORE) instanceof Boolean ignore
+            && ignore;
+    }
+
+    private static String routing(final Message message, final List<String> queues) {
+        String name = queues.get(0);
+        final Object delivery = message.properties().asMap().get(MessageProperties.DELIVERY);
+        if (delivery instanceof Map<?, ?> info
+            && info.get(MessageProperties.ROUTING) instanceof String routed) {
+            name = routed;
+        }
+        return name;
     }
 
     private static Message again(final Message message) {

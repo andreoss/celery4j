@@ -70,6 +70,11 @@ public final class MessageHeaders {
     public static final String RETRIES = "retries";
 
     /**
+     * Name of the header saying that no result is wanted.
+     */
+    public static final String IGNORE = "ignore_result";
+
+    /**
      * Name of the header holding the printable form of the arguments.
      */
     public static final String ARGSREPR = "argsrepr";
