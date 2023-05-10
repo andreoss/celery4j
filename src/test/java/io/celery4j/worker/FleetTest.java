@@ -188,8 +188,7 @@ final class FleetTest {
             broker,
             new FakeBackend(new ConcurrentHashMap<>()),
             new Registry(Map.of(FleetTest.NAME, job)),
-            new Protocols(),
-            Clock.systemUTC()
+            new Options(new Protocols(), Clock.systemUTC(), new RetryPolicy(), null)
         );
     }
 

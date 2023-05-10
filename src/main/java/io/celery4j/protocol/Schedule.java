@@ -4,12 +4,15 @@
  */
 package io.celery4j.protocol;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -99,8 +102,43 @@ public final class Schedule {
         return this.headers.with(MessageHeaders.EXPIRES, Schedule.text(expires));
     }
 
+    /**
+     * How long the task may run for.
+     *
+     * <p>The protocol carries a soft and a hard limit. The soft one is what a
+     * worker acts on first, and the hard one is what it falls back to when no
+     * soft one was named.</p>
+     *
+     * @return The limit, empty when the message names none
+     * @throws ProtocolException If the header is no pair of numbers
+     */
+    public Optional<Duration> limit() throws ProtocolException {
+        final Object value = this.headers.asMap().get(MessageHeaders.TIMELIMIT);
+        Optional<Duration> found = Optional.empty();
+        if (value instanceof List<?> pair) {
+            found = pair.stream()
+                .filter(Objects::nonNull)
+                .map(Schedule::seconds)
+                .findFirst();
+        } else if (value != null) {
+            throw new ProtocolException(
+                String.format("header %s is no pair: %s", MessageHeaders.TIMELIMIT, value)
+            );
+        }
+        return found;
+    }
+
     private Optional<Instant> time(final String name) {
         return this.headers.text(name).map(Schedule::instant);
+    }
+
+    private static Duration seconds(final Object value) {
+        if (!(value instanceof Number number)) {
+            throw new ProtocolException(
+                String.format("a time limit is no number: %s", value)
+            );
+        }
+        return Duration.ofMillis(Math.round(number.doubleValue() * 1000.0));
     }
 
     private static String text(final Instant time) {

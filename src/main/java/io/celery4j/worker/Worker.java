@@ -7,7 +7,6 @@ package io.celery4j.worker;
 import io.celery4j.protocol.Message;
 import io.celery4j.protocol.MessageHeaders;
 import io.celery4j.protocol.MessageProperties;
-import io.celery4j.protocol.Protocols;
 import io.celery4j.protocol.Schedule;
 import io.celery4j.protocol.Task;
 import io.celery4j.result.Backend;
@@ -16,7 +15,6 @@ import io.celery4j.result.TaskResult;
 import io.celery4j.transport.Broker;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -28,6 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A worker: it takes one message from a queue, runs the task it names, and
@@ -61,14 +62,9 @@ public final class Worker {
     public static final String MODULE = "exc_module";
 
     /**
-     * Protocol versions used when none were given.
+     * Options used when none were given.
      */
-    private static final Protocols VERSIONS = new Protocols();
-
-    /**
-     * Clock used when none was given.
-     */
-    private static final Clock UTC = Clock.systemUTC();
+    private static final Options DEFAULTS = new Options();
 
     /**
      * Queue the messages come from.
@@ -86,14 +82,9 @@ public final class Worker {
     private final Registry registry;
 
     /**
-     * Protocol versions this worker reads.
+     * What this worker decides for itself.
      */
-    private final Protocols protocols;
-
-    /**
-     * Clock the results are stamped with and the schedules judged against.
-     */
-    private final Clock clock;
+    private final Options options;
 
     /**
      * Ctor.
@@ -103,7 +94,7 @@ public final class Worker {
      * @param registry Names this worker answers for
      */
     public Worker(final Broker broker, final Backend backend, final Registry registry) {
-        this(broker, backend, registry, Worker.VERSIONS, Worker.UTC);
+        this(broker, backend, registry, Worker.DEFAULTS);
     }
 
     /**
@@ -112,21 +103,18 @@ public final class Worker {
      * @param broker Queue the messages come from
      * @param backend Store the results go to
      * @param registry Names this worker answers for
-     * @param protocols Protocol versions this worker reads
-     * @param clock Clock the results are stamped with
+     * @param options What this worker decides for itself
      */
     public Worker(
         final Broker broker,
         final Backend backend,
         final Registry registry,
-        final Protocols protocols,
-        final Clock clock
+        final Options options
     ) {
         this.broker = broker;
         this.backend = backend;
         this.registry = registry;
-        this.protocols = protocols;
-        this.clock = clock;
+        this.options = options;
     }
 
     /**
@@ -184,17 +172,22 @@ public final class Worker {
 
     private Optional<TaskResult> handle(final Message message, final String queue) {
         final Schedule schedule = new Schedule(message.headers());
-        final Instant now = this.clock.instant();
+        final Instant now = this.options.clock().instant();
         final Optional<TaskResult> published;
         if (schedule.expired(now)) {
             published = Optional.of(
-                this.store(message, this.ended(this.protocols.task(message), State.REVOKED))
+                this.store(
+                    message,
+                    this.ended(this.options.protocols().task(message), State.REVOKED)
+                )
             );
         } else if (schedule.due(now)) {
             published = Optional.of(
                 this.store(
                     message,
-                    this.outcome(new Envelope(message, queue, this.protocols.task(message)))
+                    this.outcome(
+                        new Envelope(message, queue, this.options.protocols().task(message))
+                    )
                 )
             );
         } else {
@@ -213,41 +206,73 @@ public final class Worker {
 
     private TaskResult outcome(final Envelope envelope) {
         final TaskResult result = this.running(envelope)
-            .handle((value, failure) -> this.result(envelope.task(), value, failure))
+            .handle((value, failure) -> this.result(envelope, value, failure))
             .join();
         if (State.RETRY.equals(result.state().name())) {
-            this.broker.send(Worker.again(envelope.message()), envelope.queue());
+            this.broker.send(this.again(envelope.message()), envelope.queue());
         }
         return result;
     }
 
     private CompletableFuture<Object> running(final Envelope envelope) {
-        return CompletableFuture.supplyAsync(
-            () -> this.registry.of(envelope.task().name()).run(envelope.task()),
-            Runnable::run
-        );
+        final Optional<Duration> limit = this.options.limit(envelope.message());
+        final CompletableFuture<Object> started;
+        if (limit.isEmpty()) {
+            started = CompletableFuture.supplyAsync(() -> this.job(envelope), Runnable::run);
+        } else {
+            started = this.bounded(envelope, limit.orElseThrow());
+        }
+        return started;
     }
 
-    private TaskResult result(final Task task, final Object value, final Throwable failure) {
+    private CompletableFuture<Object> bounded(final Envelope envelope, final Duration limit) {
+        final ExecutorService thread = Executors.newSingleThreadExecutor();
+        return CompletableFuture
+            .supplyAsync(() -> this.job(envelope), thread)
+            .orTimeout(limit.toMillis(), TimeUnit.MILLISECONDS)
+            .whenComplete((value, failure) -> thread.shutdownNow());
+    }
+
+    private Object job(final Envelope envelope) {
+        return this.registry.of(envelope.task().name()).run(envelope.task());
+    }
+
+    private TaskResult result(
+        final Envelope envelope, final Object value, final Throwable failure
+    ) {
         final TaskResult result;
         if (failure == null) {
-            result = this.succeeded(task, value);
+            result = this.succeeded(envelope.task(), value);
         } else {
-            result = this.raised(task, Worker.cause(failure));
+            result = this.raised(envelope, Worker.cause(failure));
         }
         return result;
     }
 
-    private TaskResult raised(final Task task, final Throwable failure) {
+    private TaskResult raised(final Envelope envelope, final Throwable failure) {
         final String state;
-        if (failure instanceof RetryException) {
+        if (failure instanceof RetryException && this.options.retriable(envelope.message())) {
             state = State.RETRY;
         } else {
             state = State.FAILURE;
         }
-        return this.ended(task, state)
+        return this.ended(envelope.task(), state)
             .with(TaskResult.VALUE, Worker.described(failure))
             .with(TaskResult.TRACEBACK, Worker.text(failure));
+    }
+
+    private Message again(final Message message) {
+        if (message.headers().text(MessageHeaders.TASK).isEmpty()) {
+            throw new WorkerException("a task can only be retried under protocol two");
+        }
+        final long retries = message.headers().number(MessageHeaders.RETRIES, 0L);
+        return new Message(
+            message.properties(),
+            new Schedule(
+                message.headers().with(MessageHeaders.RETRIES, (int) retries + 1)
+            ).at(this.options.clock().instant().plus(this.options.retries().delay(retries))),
+            message.body()
+        );
     }
 
     private TaskResult succeeded(final Task task, final Object value) {
@@ -265,7 +290,7 @@ public final class Worker {
             TaskResult.DONE,
             DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSSSS")
                 .withZone(ZoneOffset.UTC)
-                .format(this.clock.instant())
+                .format(this.options.clock().instant())
         );
         return new TaskResult(values);
     }
@@ -283,20 +308,6 @@ public final class Worker {
             name = routed;
         }
         return name;
-    }
-
-    private static Message again(final Message message) {
-        if (message.headers().text(MessageHeaders.TASK).isEmpty()) {
-            throw new WorkerException("a task can only be retried under protocol two");
-        }
-        return new Message(
-            message.properties(),
-            message.headers().with(
-                MessageHeaders.RETRIES,
-                (int) message.headers().number(MessageHeaders.RETRIES, 0L) + 1
-            ),
-            message.body()
-        );
     }
 
     private static Throwable cause(final Throwable failure) {

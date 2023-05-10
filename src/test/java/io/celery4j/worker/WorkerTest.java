@@ -309,10 +309,9 @@ final class WorkerTest {
     @Test
     void raisesTheRetryCountAgainOnASecondRetry() {
         final Broker broker = WorkerTest.broker();
-        broker.send(WorkerTest.message(), WorkerTest.QUEUE);
-        final Worker worker = WorkerTest.worker(broker, WorkerTest.retrying());
-        worker.once(WorkerTest.QUEUE, WorkerTest.WAIT);
-        worker.once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        broker.send(WorkerTest.retried(1), WorkerTest.QUEUE);
+        WorkerTest.worker(broker, WorkerTest.retrying())
+            .once(WorkerTest.QUEUE, WorkerTest.WAIT);
         Assertions.assertEquals(
             2L,
             broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT)
@@ -410,6 +409,135 @@ final class WorkerTest {
         );
     }
 
+    @Test
+    void stopsRetryingWhenThePolicyIsSpent() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.retried(3), WorkerTest.QUEUE);
+        Assertions.assertEquals(
+            new State(State.FAILURE),
+            WorkerTest.worker(broker, WorkerTest.retrying())
+                .once(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .state()
+        );
+    }
+
+    @Test
+    void sendsNothingBackWhenThePolicyIsSpent() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.retried(3), WorkerTest.QUEUE);
+        WorkerTest.worker(broker, WorkerTest.retrying())
+            .once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertEquals(
+            Optional.empty(), broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT)
+        );
+    }
+
+    @Test
+    void makesARetriedTaskWaitBeforeItsNextAttempt() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.message(), WorkerTest.QUEUE);
+        WorkerTest.worker(broker, WorkerTest.retrying())
+            .once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertEquals(
+            Optional.of("2026-09-19T12:00:01Z"),
+            broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .headers()
+                .text(MessageHeaders.ETA)
+        );
+    }
+
+    @Test
+    void makesALaterRetryWaitLonger() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.retried(2), WorkerTest.QUEUE);
+        WorkerTest.worker(broker, WorkerTest.retrying())
+            .once(WorkerTest.QUEUE, WorkerTest.WAIT);
+        Assertions.assertEquals(
+            Optional.of("2026-09-19T12:00:04Z"),
+            broker.receive(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .headers()
+                .text(MessageHeaders.ETA)
+        );
+    }
+
+    @Test
+    void failsATaskThatOutranItsLimit() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.limited(), WorkerTest.QUEUE);
+        Assertions.assertEquals(
+            new State(State.FAILURE),
+            WorkerTest.worker(broker, WorkerTest.slow())
+                .once(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .state()
+        );
+    }
+
+    @Test
+    void saysWhyATaskThatOutranItsLimitFailed() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.limited(), WorkerTest.QUEUE);
+        Assertions.assertEquals(
+            "TimeoutException",
+            ((Map<?, ?>) WorkerTest.worker(broker, WorkerTest.slow())
+                .once(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .value()
+                .orElseThrow())
+                .get(Worker.TYPE)
+        );
+    }
+
+    @Test
+    void runsATaskThatKeepsWithinItsLimit() {
+        final Broker broker = WorkerTest.broker();
+        broker.send(WorkerTest.limited(), WorkerTest.QUEUE);
+        Assertions.assertEquals(
+            new State(State.SUCCESS),
+            WorkerTest.worker(broker, WorkerTest.adding())
+                .once(WorkerTest.QUEUE, WorkerTest.WAIT)
+                .orElseThrow()
+                .state()
+        );
+    }
+
+    private static Message retried(final int retries) {
+        final Message message = WorkerTest.message();
+        return new Message(
+            message.properties(),
+            message.headers().with(MessageHeaders.RETRIES, retries),
+            message.body()
+        );
+    }
+
+    private static Message limited() {
+        final Message message = WorkerTest.message();
+        return new Message(
+            message.properties(),
+            message.headers().with(MessageHeaders.TIMELIMIT, List.of(1, 2)),
+            message.body()
+        );
+    }
+
+    private static Registry slow() {
+        return new Registry(
+            Map.of(
+                WorkerTest.NAME,
+                task -> {
+                    try {
+                        Thread.sleep(4000L);
+                    } catch (final InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return 4;
+                }
+            )
+        );
+    }
+
     private static Message ignoring() {
         final Message message = WorkerTest.message();
         return new Message(
@@ -465,8 +593,12 @@ final class WorkerTest {
             broker,
             backend,
             registry,
-            new Protocols(),
-            Clock.fixed(Instant.parse("2026-09-19T12:00:00Z"), ZoneOffset.UTC)
+            new Options(
+                new Protocols(),
+                Clock.fixed(Instant.parse("2026-09-19T12:00:00Z"), ZoneOffset.UTC),
+                new RetryPolicy(),
+                null
+            )
         );
     }
 
