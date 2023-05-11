@@ -5,9 +5,9 @@ workers, run the tasks Celery sends, and read the results either side leaves
 behind. No bridge, no adapter, no Python in the way.
 
 * Celery protocol version 2 and version 1, bodies in JSON
-* Redis and AMQP brokers
-* Results with their states, values and failures
-* A worker that runs what it is handed, with retries and time limits
+* Redis and AMQP brokers, Redis result backend
+* A worker, a fleet of them, and a client to ask with
+* Checked against a real Celery worker and producer in containers
 
 == Build
 
