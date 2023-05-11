@@ -49,16 +49,35 @@ interface BrokerContract {
     String queue();
 
     /**
-     * A broker delivers what it was sent.
+     * A broker delivers the headers it was sent.
+     *
+     * <p>The delivery properties are the transport's own business and may
+     * differ: what must survive is what the message means.</p>
      */
     @Test
-    default void deliversWhatItWasSent() {
+    default void deliversTheHeadersItWasSent() {
         try (Broker broker = this.broker()) {
             final String queue = this.queue("sent");
             final Message sent = this.message("proj.tasks.add", queue);
             broker.send(sent, queue);
             Assertions.assertEquals(
-                Optional.of(sent), broker.receive(queue, BrokerContract.WAIT)
+                sent.headers().asMap(),
+                broker.receive(queue, BrokerContract.WAIT).orElseThrow().headers().asMap()
+            );
+        }
+    }
+
+    /**
+     * A broker delivers the body it was sent.
+     */
+    @Test
+    default void deliversTheBodyItWasSent() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("body");
+            final Message sent = this.message("proj.tasks.add", queue);
+            broker.send(sent, queue);
+            Assertions.assertEquals(
+                sent.body(), broker.receive(queue, BrokerContract.WAIT).orElseThrow().body()
             );
         }
     }
