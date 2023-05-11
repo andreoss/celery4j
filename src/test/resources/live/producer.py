@@ -6,7 +6,7 @@ from celery import Celery
 app = Celery(
     "producer",
     broker=os.environ["BROKER_URL"],
-    backend=os.environ["BROKER_URL"],
+    backend=os.environ.get("RESULT_URL", os.environ["BROKER_URL"]),
 )
 
 app.send_task(

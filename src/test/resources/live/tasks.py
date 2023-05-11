@@ -5,7 +5,7 @@ from celery import Celery
 app = Celery(
     "tasks",
     broker=os.environ["BROKER_URL"],
-    backend=os.environ["BROKER_URL"],
+    backend=os.environ.get("RESULT_URL", os.environ["BROKER_URL"]),
 )
 
 
