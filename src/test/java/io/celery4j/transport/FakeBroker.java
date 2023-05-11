@@ -18,6 +18,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  * A broker that keeps its queues in memory, for cases that need a broker but
  * not a store.
  *
+ * <p>It holds what it hands out in the same way the real adapter does, so the
+ * cases about a worker dying mean the same thing here.</p>
+ *
  * @since 0.1.0
  */
 public final class FakeBroker implements Broker {
@@ -33,14 +36,25 @@ public final class FakeBroker implements Broker {
     private final Queues names;
 
     /**
+     * What has been handed out but not seen through.
+     */
+    private final Map<Message, Message> holding;
+
+    /**
      * Ctor.
      *
      * @param queues Queues by name
      * @param names Names a queue is known by
+     * @param holding What has been handed out but not seen through
      */
-    public FakeBroker(final Map<String, Deque<Message>> queues, final Queues names) {
+    public FakeBroker(
+        final Map<String, Deque<Message>> queues,
+        final Queues names,
+        final Map<Message, Message> holding
+    ) {
         this.queues = queues;
         this.names = names;
+        this.holding = holding;
     }
 
     @Override
@@ -60,11 +74,44 @@ public final class FakeBroker implements Broker {
             .filter(Objects::nonNull)
             .map(Deque::pollLast)
             .filter(Objects::nonNull)
-            .findFirst();
+            .findFirst()
+            .map(this::hold);
+    }
+
+    @Override
+    public void done(final Message message) {
+        this.holding.remove(message);
+    }
+
+    @Override
+    public long restore() {
+        long returned = 0L;
+        for (final Message message : List.copyOf(this.holding.values())) {
+            this.holding.remove(message);
+            this.send(message, FakeBroker.routing(message));
+            returned = returned + 1L;
+        }
+        return returned;
     }
 
     @Override
     public void close() {
         this.queues.clear();
+        this.holding.clear();
+    }
+
+    private Message hold(final Message message) {
+        this.holding.put(message, message);
+        return message;
+    }
+
+    private static String routing(final Message message) {
+        String queue = "celery";
+        final Object delivery = message.properties().asMap().get(MessageProperties.DELIVERY);
+        if (delivery instanceof Map<?, ?> info
+            && info.get(MessageProperties.ROUTING) instanceof String named) {
+            queue = named;
+        }
+        return queue;
     }
 }

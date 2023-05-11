@@ -21,7 +21,7 @@ final class FakeBrokerTest implements BrokerContract {
 
     @Override
     public Broker broker() {
-        return new FakeBroker(new ConcurrentHashMap<>(), new Queues());
+        return new FakeBroker(new ConcurrentHashMap<>(), new Queues(), new ConcurrentHashMap<>());
     }
 
     @Override

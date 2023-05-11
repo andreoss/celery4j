@@ -87,6 +87,16 @@ public final class Reconnecting implements Broker {
     }
 
     @Override
+    public void done(final Message message) throws TransportException {
+        this.origin.done(message);
+    }
+
+    @Override
+    public long restore() throws TransportException {
+        return this.origin.restore();
+    }
+
+    @Override
     public void close() throws TransportException {
         this.origin.close();
     }

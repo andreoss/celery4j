@@ -192,6 +192,7 @@ public final class Worker {
             );
         } else {
             this.broker.send(message, queue);
+            this.broker.done(message);
             published = Optional.empty();
         }
         return published;
@@ -201,6 +202,7 @@ public final class Worker {
         if (!Worker.ignored(message)) {
             this.backend.store(result);
         }
+        this.broker.done(message);
         return result;
     }
 

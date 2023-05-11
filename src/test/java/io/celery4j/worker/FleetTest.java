@@ -193,7 +193,7 @@ final class FleetTest {
     }
 
     private static Broker broker() {
-        return new FakeBroker(new ConcurrentHashMap<>(), new Queues());
+        return new FakeBroker(new ConcurrentHashMap<>(), new Queues(), new ConcurrentHashMap<>());
     }
 
     private static Message message(final String id) {

@@ -57,6 +57,30 @@ public interface Broker extends AutoCloseable {
         return this.receive(List.of(queue), timeout);
     }
 
+    /**
+     * Say that a message was seen through, so it is not returned to its queue
+     * later.
+     *
+     * <p>An adapter that does not hold what it hands out has nothing to do
+     * here, and says so by doing nothing.</p>
+     *
+     * @param message Message that was seen through
+     * @throws TransportException If the broker cannot be told
+     */
+    void done(Message message) throws TransportException;
+
+    /**
+     * Return everything taken but never seen through to the queue it came
+     * from.
+     *
+     * <p>This is what a worker calls when it starts, so that what an earlier
+     * worker was holding when it died is run rather than lost.</p>
+     *
+     * @return How many messages were returned
+     * @throws TransportException If the broker cannot be read or written
+     */
+    long restore() throws TransportException;
+
     @Override
     void close() throws TransportException;
 }

@@ -117,12 +117,12 @@ final class ReconnectingTest {
     }
 
     private static Broker working() {
-        return new FakeBroker(new ConcurrentHashMap<>(), new Queues());
+        return new FakeBroker(new ConcurrentHashMap<>(), new Queues(), new ConcurrentHashMap<>());
     }
 
     private static Broker failing(final int times) {
         return new FlakyBroker(
-            new FakeBroker(new ConcurrentHashMap<>(), new Queues()),
+            new FakeBroker(new ConcurrentHashMap<>(), new Queues(), new ConcurrentHashMap<>()),
             new AtomicInteger(times),
             new AtomicInteger()
         );
@@ -130,7 +130,7 @@ final class ReconnectingTest {
 
     private static Broker counting(final AtomicInteger tries) {
         return new FlakyBroker(
-            new FakeBroker(new ConcurrentHashMap<>(), new Queues()),
+            new FakeBroker(new ConcurrentHashMap<>(), new Queues(), new ConcurrentHashMap<>()),
             new AtomicInteger(Integer.MAX_VALUE),
             tries
         );

@@ -603,7 +603,7 @@ final class WorkerTest {
     }
 
     private static Broker broker() {
-        return new FakeBroker(new ConcurrentHashMap<>(), new Queues());
+        return new FakeBroker(new ConcurrentHashMap<>(), new Queues(), new ConcurrentHashMap<>());
     }
 
     private static Registry adding() {

@@ -124,6 +124,59 @@ interface BrokerContract {
     }
 
     /**
+     * A message taken but never seen through comes back.
+     */
+    @Test
+    default void returnsWhatWasNeverSeenThrough() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("held");
+            broker.send(this.message("proj.tasks.add", queue), queue);
+            broker.receive(queue, BrokerContract.WAIT);
+            broker.restore();
+            Assertions.assertTrue(broker.receive(queue, BrokerContract.WAIT).isPresent());
+        }
+    }
+
+    /**
+     * A message that was seen through does not come back.
+     */
+    @Test
+    default void keepsWhatWasSeenThrough() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("acked");
+            broker.send(this.message("proj.tasks.add", queue), queue);
+            broker.done(broker.receive(queue, BrokerContract.WAIT).orElseThrow());
+            broker.restore();
+            Assertions.assertEquals(
+                Optional.empty(), broker.receive(queue, BrokerContract.GLANCE)
+            );
+        }
+    }
+
+    /**
+     * Restoring counts what it returned.
+     */
+    @Test
+    default void countsWhatItReturned() {
+        try (Broker broker = this.broker()) {
+            final String queue = this.queue("counted");
+            broker.send(this.message("proj.tasks.add", queue), queue);
+            broker.receive(queue, BrokerContract.WAIT);
+            Assertions.assertEquals(1L, broker.restore());
+        }
+    }
+
+    /**
+     * Restoring an empty hold returns nothing.
+     */
+    @Test
+    default void returnsNothingWhenItHoldsNothing() {
+        try (Broker broker = this.broker()) {
+            Assertions.assertEquals(0L, broker.restore());
+        }
+    }
+
+    /**
      * The queue a case works on.
      *
      * @param suffix What tells this case apart from the others

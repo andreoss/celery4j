@@ -4,10 +4,12 @@
  */
 package io.celery4j.transport;
 
+import io.celery4j.protocol.JsonMessageCodec;
 import io.celery4j.protocol.Message;
 import io.celery4j.protocol.MessageProperties;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -47,7 +49,10 @@ final class RedisBrokerIT implements BrokerContract {
             new JedisPool(
                 RedisBrokerIT.STORE.getHost(),
                 RedisBrokerIT.STORE.getMappedPort(RedisBrokerIT.PORT)
-            )
+            ),
+            new JsonMessageCodec(),
+            new Queues(),
+            String.format("%s-%s", RedisBroker.HELD, UUID.randomUUID())
         );
     }
 

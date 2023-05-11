@@ -63,6 +63,16 @@ final class FlakyBroker implements Broker {
     }
 
     @Override
+    public void done(final Message message) {
+        this.origin.done(message);
+    }
+
+    @Override
+    public long restore() {
+        return this.origin.restore();
+    }
+
+    @Override
     public void close() {
         this.origin.close();
     }
