@@ -260,7 +260,8 @@ final class ForeignValuesIT {
         return new ImageFromDockerfile()
             .withFileFromClasspath("Dockerfile", "live/Dockerfile")
             .withFileFromClasspath("tasks.py", "live/tasks.py")
-            .withFileFromClasspath("producer.py", "live/producer.py");
+            .withFileFromClasspath("producer.py", "live/producer.py")
+            .withFileFromClasspath("schedule.py", "live/schedule.py");
     }
 
     private static JedisPool pool() {
