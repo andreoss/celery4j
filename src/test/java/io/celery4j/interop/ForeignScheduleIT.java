@@ -195,7 +195,8 @@ final class ForeignScheduleIT {
             .withFileFromClasspath("Dockerfile", "live/Dockerfile")
             .withFileFromClasspath("tasks.py", "live/tasks.py")
             .withFileFromClasspath("producer.py", "live/producer.py")
-            .withFileFromClasspath("schedule.py", "live/schedule.py");
+            .withFileFromClasspath("schedule.py", "live/schedule.py")
+            .withFileFromClasspath("serialize.py", "live/serialize.py");
     }
 
     private static JedisPool pool() {
