@@ -136,7 +136,8 @@ final class ForeignOlderProtocolIT {
             .withFileFromClasspath("producer.py", "live/producer.py")
             .withFileFromClasspath("schedule.py", "live/schedule.py")
             .withFileFromClasspath("serialize.py", "live/serialize.py")
-            .withFileFromClasspath("read.py", "live/read.py");
+            .withFileFromClasspath("read.py", "live/read.py")
+            .withFileFromClasspath("workflow.py", "live/workflow.py");
     }
 
     private static JedisPool pool() {

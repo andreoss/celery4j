@@ -1,4 +1,5 @@
 import os
+import time
 
 from celery import Celery
 
@@ -7,6 +8,7 @@ app = Celery(
     broker=os.environ["BROKER_URL"],
     backend=os.environ.get("RESULT_URL", os.environ["BROKER_URL"]),
 )
+app.conf.task_track_started = True
 
 
 @app.task(name="proj.tasks.add")
@@ -38,3 +40,14 @@ def give(kind):
         "list": [1, "two", 3.5],
         "map": {"a": 1, "b": [2, 3], "c": {"d": "e"}},
     }[kind]
+
+
+@app.task(name="proj.tasks.slow")
+def slow(seconds):
+    time.sleep(seconds)
+    return seconds
+
+
+@app.task(name="proj.tasks.flaky", bind=True, max_retries=1)
+def flaky(self):
+    raise self.retry(countdown=30)
