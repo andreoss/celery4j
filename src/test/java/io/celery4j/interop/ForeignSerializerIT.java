@@ -172,7 +172,8 @@ final class ForeignSerializerIT {
             .withFileFromClasspath("tasks.py", "live/tasks.py")
             .withFileFromClasspath("producer.py", "live/producer.py")
             .withFileFromClasspath("schedule.py", "live/schedule.py")
-            .withFileFromClasspath("serialize.py", "live/serialize.py");
+            .withFileFromClasspath("serialize.py", "live/serialize.py")
+            .withFileFromClasspath("read.py", "live/read.py");
     }
 
     private static JedisPool pool() {
