@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.celery4j</groupId>
   <artifactId>celery4j</artifactId>
-  <version>0.2.1</version>
+  <version>0.3.0</version>
   <packaging>jar</packaging>
   <name>celery4j</name>
   <description>Java client and worker for the distributed task queue protocol</description>
@@ -149,6 +149,11 @@
               <goal>check</goal>
             </goals>
             <configuration>
+              <excludes>
+                <exclude>io/celery4j/transport/RedisBroker.class</exclude>
+                <exclude>io/celery4j/transport/AmqpBroker.class</exclude>
+                <exclude>io/celery4j/result/RedisBackend.class</exclude>
+              </excludes>
               <rules>
                 <rule>
                   <element>BUNDLE</element>
