@@ -8,6 +8,7 @@ COPY schedule.py /app/schedule.py
 COPY serialize.py /app/serialize.py
 COPY read.py /app/read.py
 COPY workflow.py /app/workflow.py
+COPY header.py /app/header.py
 WORKDIR /app
 
 CMD ["celery", "-A", "tasks", "worker", "--loglevel=info", "--concurrency=1", "-Q", "interop"]

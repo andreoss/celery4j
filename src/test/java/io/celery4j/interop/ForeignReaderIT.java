@@ -185,7 +185,8 @@ final class ForeignReaderIT {
             .withFileFromClasspath("schedule.py", "live/schedule.py")
             .withFileFromClasspath("serialize.py", "live/serialize.py")
             .withFileFromClasspath("read.py", "live/read.py")
-            .withFileFromClasspath("workflow.py", "live/workflow.py");
+            .withFileFromClasspath("workflow.py", "live/workflow.py")
+            .withFileFromClasspath("header.py", "live/header.py");
     }
 
     private static JedisPool pool() {

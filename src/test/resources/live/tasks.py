@@ -51,3 +51,8 @@ def slow(seconds):
 @app.task(name="proj.tasks.flaky", bind=True, max_retries=1)
 def flaky(self):
     raise self.retry(countdown=30)
+
+
+@app.task(name="proj.tasks.headers", bind=True)
+def headers(self, name):
+    return self.request.get(name)
