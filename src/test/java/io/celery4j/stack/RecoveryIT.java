@@ -41,7 +41,7 @@ import redis.clients.jedis.JedisPool;
  * by a worker that never finished comes back only when another worker
  * restores, which is why they are named rather than counted.</p>
  *
- * @since 0.3.1
+ * @since 1.0.0
  */
 @Tag("live")
 @Testcontainers

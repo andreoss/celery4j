@@ -212,8 +212,16 @@ public final class Worker {
             .join();
         if (State.RETRY.equals(result.state().name())) {
             this.broker.send(this.again(envelope.message()), envelope.queue());
+        } else if (State.SUCCESS.equals(result.state().name())) {
+            this.following(envelope, result);
         }
         return result;
+    }
+
+    private void following(final Envelope envelope, final TaskResult result) {
+        for (final Envelope next : new Followups().after(envelope, result.value().orElse(null))) {
+            this.broker.send(next.message(), next.queue());
+        }
     }
 
     private CompletableFuture<Object> running(final Envelope envelope) {

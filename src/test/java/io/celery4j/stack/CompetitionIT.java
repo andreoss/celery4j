@@ -39,7 +39,7 @@ import redis.clients.jedis.JedisPool;
  * are what a deployment has, and are the only way to find out whether a
  * message can reach both of them.</p>
  *
- * @since 0.3.1
+ * @since 1.0.0
  */
 @Tag("live")
 @Testcontainers

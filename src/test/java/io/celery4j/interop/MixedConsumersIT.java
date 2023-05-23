@@ -40,7 +40,7 @@ import redis.clients.jedis.JedisPool;
  * takes the rest, and what is checked is that every task was run and that each
  * was run by exactly one side.</p>
  *
- * @since 0.3.1
+ * @since 1.0.0
  */
 @Tag("live")
 @Testcontainers

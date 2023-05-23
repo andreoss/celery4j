@@ -49,7 +49,7 @@ import redis.clients.jedis.JedisPool;
  * these cases secure both services and check that what is written lands where
  * the connection said it would and nowhere else.</p>
  *
- * @since 0.3.1
+ * @since 1.0.0
  */
 @Tag("live")
 @Testcontainers

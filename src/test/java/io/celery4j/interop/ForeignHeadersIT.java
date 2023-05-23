@@ -40,7 +40,7 @@ import redis.clients.jedis.JedisPool;
  * directions are checked here because writing an unknown header and reading
  * one are different pieces of code.</p>
  *
- * @since 0.3.1
+ * @since 1.0.0
  */
 @Tag("live")
 @Testcontainers

@@ -54,7 +54,7 @@ import redis.clients.jedis.JedisPool;
  * consumers gets a message is nobody's promise, and a consumer that is frozen
  * with a read already in flight still takes one.</p>
  *
- * @since 0.3.1
+ * @since 1.0.0
  */
 @Tag("live")
 @Testcontainers

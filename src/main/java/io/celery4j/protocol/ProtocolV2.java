@@ -77,10 +77,28 @@ public final class ProtocolV2 implements Protocol {
 
     @Override
     public Message message(final Task task, final String queue) throws ProtocolException {
+        return this.message(task, task.body(), queue);
+    }
+
+    /**
+     * Write a message for a task, with a body of its own.
+     *
+     * <p>A task that follows another one carries more than its arguments: the
+     * work that comes after it travels in the same body, which is why the body
+     * is given here rather than taken from the task.</p>
+     *
+     * @param task Task to ask for
+     * @param body Body the message carries
+     * @param queue Queue the message is written to
+     * @return The message
+     * @throws ProtocolException If the body cannot be written
+     */
+    public Message message(final Task task, final TaskBody body, final String queue)
+        throws ProtocolException {
         return new Message(
             new Deliveries(this.ids).properties(task.id(), queue),
             this.headers(task),
-            this.bodies.encode(task.body())
+            this.bodies.encode(body)
         );
     }
 
