@@ -5,16 +5,12 @@
 package io.celery4j.worker;
 
 import io.celery4j.protocol.Message;
-import io.celery4j.protocol.MessageHeaders;
-import io.celery4j.protocol.MessageProperties;
 import io.celery4j.protocol.Schedule;
 import io.celery4j.protocol.Task;
 import io.celery4j.result.Backend;
 import io.celery4j.result.State;
 import io.celery4j.result.TaskResult;
 import io.celery4j.transport.Broker;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -25,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -144,7 +139,7 @@ public final class Worker {
     public Optional<TaskResult> once(final List<String> queues, final Duration timeout)
         throws WorkerException {
         return this.broker.receive(queues, timeout)
-            .flatMap(message -> this.handle(message, Worker.routing(message, queues)));
+            .flatMap(message -> this.handle(message, new Requests(message).queue(queues)));
     }
 
     /**
@@ -199,7 +194,7 @@ public final class Worker {
     }
 
     private TaskResult store(final Message message, final TaskResult result) {
-        if (!Worker.ignored(message)) {
+        if (!new Requests(message).ignored()) {
             this.backend.store(result);
         }
         this.broker.done(message);
@@ -211,16 +206,18 @@ public final class Worker {
             .handle((value, failure) -> this.result(envelope, value, failure))
             .join();
         if (State.RETRY.equals(result.state().name())) {
-            this.broker.send(this.again(envelope.message()), envelope.queue());
+            this.sending(List.of(Followups.retry(envelope, this.options)));
         } else if (State.SUCCESS.equals(result.state().name())) {
-            this.following(envelope, result);
+            this.sending(new Followups().after(envelope, result.value().orElse(null)));
+        } else {
+            this.sending(new Followups().failed(envelope));
         }
         return result;
     }
 
-    private void following(final Envelope envelope, final TaskResult result) {
-        for (final Envelope next : new Followups().after(envelope, result.value().orElse(null))) {
-            this.broker.send(next.message(), next.queue());
+    private void sending(final List<Envelope> next) {
+        for (final Envelope one : next) {
+            this.broker.send(one.message(), one.queue());
         }
     }
 
@@ -254,7 +251,7 @@ public final class Worker {
         if (failure == null) {
             result = this.succeeded(envelope.task(), value);
         } else {
-            result = this.raised(envelope, Worker.cause(failure));
+            result = this.raised(envelope, new Failures(failure).itself());
         }
         return result;
     }
@@ -267,22 +264,8 @@ public final class Worker {
             state = State.FAILURE;
         }
         return this.ended(envelope.task(), state)
-            .with(TaskResult.VALUE, Worker.described(failure))
-            .with(TaskResult.TRACEBACK, Worker.text(failure));
-    }
-
-    private Message again(final Message message) {
-        if (message.headers().text(MessageHeaders.TASK).isEmpty()) {
-            throw new WorkerException("a task can only be retried under protocol two");
-        }
-        final long retries = message.headers().number(MessageHeaders.RETRIES, 0L);
-        return new Message(
-            message.properties(),
-            new Schedule(
-                message.headers().with(MessageHeaders.RETRIES, (int) retries + 1)
-            ).at(this.options.clock().instant().plus(this.options.retries().delay(retries))),
-            message.body()
-        );
+            .with(TaskResult.VALUE, new Failures(failure).described())
+            .with(TaskResult.TRACEBACK, new Failures(failure).text());
     }
 
     private TaskResult succeeded(final Task task, final Object value) {
@@ -303,44 +286,5 @@ public final class Worker {
                 .format(this.options.clock().instant())
         );
         return new TaskResult(values);
-    }
-
-    private static boolean ignored(final Message message) {
-        return message.headers().asMap().get(MessageHeaders.IGNORE) instanceof Boolean ignore
-            && ignore;
-    }
-
-    private static String routing(final Message message, final List<String> queues) {
-        String name = queues.get(0);
-        final Object delivery = message.properties().asMap().get(MessageProperties.DELIVERY);
-        if (delivery instanceof Map<?, ?> info
-            && info.get(MessageProperties.ROUTING) instanceof String routed) {
-            name = routed;
-        }
-        return name;
-    }
-
-    private static Throwable cause(final Throwable failure) {
-        Throwable found = failure;
-        if (failure instanceof CompletionException && failure.getCause() != null) {
-            found = failure.getCause();
-        }
-        return found;
-    }
-
-    private static Map<String, Object> described(final Throwable failure) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put(Worker.TYPE, failure.getClass().getSimpleName());
-        values.put(Worker.MESSAGE, List.of(String.valueOf(failure.getMessage())));
-        values.put(Worker.MODULE, failure.getClass().getPackageName());
-        return values;
-    }
-
-    private static String text(final Throwable failure) {
-        final StringWriter written = new StringWriter();
-        try (PrintWriter printer = new PrintWriter(written)) {
-            failure.printStackTrace(printer);
-        }
-        return written.toString();
     }
 }

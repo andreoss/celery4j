@@ -22,6 +22,13 @@ elif sys.argv[1] == "group":
         app.signature(name, args=[1], queue=queue),
         app.signature(name, args=[2], queue=queue),
     ).apply_async()
+elif sys.argv[1] == "error":
+    app.send_task(
+        "proj.java.boom",
+        args=[5],
+        queue=queue,
+        link_error=app.signature(name, args=[], queue=queue),
+    )
 else:
     app.send_task(
         name,

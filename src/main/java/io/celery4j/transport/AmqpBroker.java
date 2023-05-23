@@ -62,6 +62,11 @@ public final class AmqpBroker implements Broker {
     private final Map<Message, Long> holding;
 
     /**
+     * Where messages are published, and who declares the queues.
+     */
+    private final Exchange exchange;
+
+    /**
      * Ctor.
      *
      * @param channel Channel the messages travel on
@@ -74,11 +79,35 @@ public final class AmqpBroker implements Broker {
      * Ctor.
      *
      * @param channel Channel the messages travel on
+     * @param exchange Where messages are published, and who declares the
+     *  queues
+     */
+    public AmqpBroker(final Channel channel, final Exchange exchange) {
+        this(channel, new Queues(), exchange);
+    }
+
+    /**
+     * Ctor.
+     *
+     * @param channel Channel the messages travel on
      * @param queues Names a queue is known by
      */
     public AmqpBroker(final Channel channel, final Queues queues) {
+        this(channel, queues, new Exchange());
+    }
+
+    /**
+     * Ctor.
+     *
+     * @param channel Channel the messages travel on
+     * @param queues Names a queue is known by
+     * @param exchange Where messages are published, and who declares the
+     *  queues
+     */
+    public AmqpBroker(final Channel channel, final Queues queues, final Exchange exchange) {
         this.channel = channel;
         this.queues = queues;
+        this.exchange = exchange;
         this.messages = new AmqpMessages();
         this.holding = new ConcurrentHashMap<>();
     }
@@ -89,9 +118,12 @@ public final class AmqpBroker implements Broker {
             queue, message.properties().number(MessageProperties.PRIORITY, 0L)
         );
         try {
-            this.channel.queueDeclare(name, true, false, false, Map.of());
+            this.declared(name);
             this.channel.basicPublish(
-                "", name, this.messages.properties(message), this.messages.body(message)
+                this.exchange.name(),
+                name,
+                this.messages.properties(message),
+                this.messages.body(message)
             );
         } catch (final IOException ex) {
             throw new TransportException(String.format("queue %s cannot be written", queue), ex);
@@ -155,7 +187,7 @@ public final class AmqpBroker implements Broker {
         for (final String name : names) {
             final GetResponse got;
             try {
-                this.channel.queueDeclare(name, true, false, false, Map.of());
+                this.declared(name);
                 got = this.channel.basicGet(name, false);
             } catch (final IOException ex) {
                 throw new TransportException(String.format("queue %s cannot be read", name), ex);
@@ -170,6 +202,12 @@ public final class AmqpBroker implements Broker {
             }
         }
         return found;
+    }
+
+    private void declared(final String name) throws IOException {
+        if (this.exchange.declares()) {
+            this.channel.queueDeclare(name, true, false, false, Map.of());
+        }
     }
 
     private static void pause(final Duration wait) {
