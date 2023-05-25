@@ -30,7 +30,9 @@ import java.util.concurrent.TimeoutException;
  * cannot.</p>
  *
  * <p>The channel is supplied rather than opened here. Closing this broker
- * closes it.</p>
+ * closes it, unless the service has closed it already: a service that refuses
+ * something closes the channel it was refused on, and a broker that then
+ * insisted on closing it again would hide what it was refused for.</p>
  *
  * @since 0.2.0
  */
@@ -174,7 +176,9 @@ public final class AmqpBroker implements Broker {
     @Override
     public void close() throws TransportException {
         try {
-            this.channel.close();
+            if (this.channel.isOpen()) {
+                this.channel.close();
+            }
         } catch (final IOException ex) {
             throw new TransportException("broker cannot be closed", ex);
         } catch (final TimeoutException ex) {
