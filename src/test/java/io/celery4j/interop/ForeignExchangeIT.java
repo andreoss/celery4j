@@ -42,6 +42,11 @@ import redis.clients.jedis.JedisPool;
  * to it: through the exchange it declared, by the key it bound its queue
  * with.
  *
+ * <p>The queue is declared here as the other side declares it, durable and
+ * with nothing of its own, because a binding cannot be made to a queue that
+ * does not exist yet and the other side declares its own when it feels like
+ * it.</p>
+ *
  * <p>Writing to the nameless exchange reaches the same queue and says nothing
  * about routing, because the service delivers by queue name there whatever
  * anybody declared. Only a message published to the exchange the other side
@@ -172,6 +177,7 @@ final class ForeignExchangeIT {
         try {
             final Channel channel = ForeignExchangeIT.channel();
             channel.exchangeDeclare(exchange, BuiltinExchangeType.DIRECT, true);
+            channel.queueDeclare(ForeignExchangeIT.QUEUE, true, false, false, Map.of());
             channel.queueBind(ForeignExchangeIT.QUEUE, exchange, ForeignExchangeIT.QUEUE);
             channel.close();
         } catch (final IOException ex) {

@@ -23,6 +23,11 @@ import java.util.concurrent.TimeoutException;
  * {@link AmqpMessages}: the headers travel as the delivery's headers and the
  * body as bytes.</p>
  *
+ * <p>A priority travels in the delivery here, where the service knows what to
+ * do with it, and every priority is written to the one queue it was addressed
+ * to. Splitting a queue into one queue per step is what the other transport
+ * has to do, having nothing to put a priority into.</p>
+ *
  * <p>A message is taken unacknowledged and acknowledged when the worker says
  * it is done. What was taken but never acknowledged is returned to its queue
  * when a worker restores, and the service returns it anyway when the
@@ -42,6 +47,11 @@ public final class AmqpBroker implements Broker {
      * How long a receive sleeps before asking the queues again.
      */
     private static final Duration TICK = Duration.ofMillis(50L);
+
+    /**
+     * One queue for every priority, which is how this service carries them.
+     */
+    private static final Queues ONE = new Queues(Queues.SEPARATOR, List.of(0));
 
     /**
      * Channel the messages travel on.
@@ -74,7 +84,7 @@ public final class AmqpBroker implements Broker {
      * @param channel Channel the messages travel on
      */
     public AmqpBroker(final Channel channel) {
-        this(channel, new Queues());
+        this(channel, AmqpBroker.ONE);
     }
 
     /**
@@ -85,7 +95,7 @@ public final class AmqpBroker implements Broker {
      *  queues
      */
     public AmqpBroker(final Channel channel, final Exchange exchange) {
-        this(channel, new Queues(), exchange);
+        this(channel, AmqpBroker.ONE, exchange);
     }
 
     /**
