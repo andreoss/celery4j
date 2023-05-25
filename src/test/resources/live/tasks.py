@@ -9,6 +9,7 @@ app = Celery(
     backend=os.environ.get("RESULT_URL", os.environ["BROKER_URL"]),
 )
 app.conf.task_track_started = True
+app.conf.accept_content = ["json", "yaml"]
 
 
 @app.task(name="proj.tasks.add")

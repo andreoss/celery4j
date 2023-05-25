@@ -39,9 +39,14 @@ public final class ProtocolV2 implements Protocol {
     private static final String NODE = ProtocolV2.node();
 
     /**
-     * Codec the body is read and written with.
+     * Codec the body is written with.
      */
     private final TaskBodyCodec bodies;
+
+    /**
+     * Codecs the body is read with, by the content type a message declares.
+     */
+    private final BodyCodecs known;
 
     /**
      * Source of the identifiers a delivery needs.
@@ -70,7 +75,32 @@ public final class ProtocolV2 implements Protocol {
     public ProtocolV2(
         final TaskBodyCodec bodies, final Supplier<String> ids, final String origin
     ) {
+        this(
+            bodies,
+            new BodyCodecs()
+                .with(MessageProperties.JSON, bodies)
+                .with(BodyCodecs.JSON, bodies),
+            ids,
+            origin
+        );
+    }
+
+    /**
+     * Ctor.
+     *
+     * @param bodies Codec the body is written with
+     * @param known Codecs the body is read with, by content type
+     * @param ids Source of the identifiers a delivery needs
+     * @param origin Name of the node producing these messages
+     */
+    public ProtocolV2(
+        final TaskBodyCodec bodies,
+        final BodyCodecs known,
+        final Supplier<String> ids,
+        final String origin
+    ) {
         this.bodies = bodies;
+        this.known = known;
         this.ids = ids;
         this.origin = origin;
     }
@@ -104,7 +134,7 @@ public final class ProtocolV2 implements Protocol {
 
     @Override
     public Task task(final Message message) throws ProtocolException {
-        final TaskBody body = this.bodies.decode(message.body());
+        final TaskBody body = this.body(message);
         return new Task(message.id(), message.task(), body.args(), body.kwargs());
     }
 
@@ -116,7 +146,7 @@ public final class ProtocolV2 implements Protocol {
      * @throws ProtocolException If the body is no body of this version
      */
     public TaskBody body(final Message message) throws ProtocolException {
-        return this.bodies.decode(message.body());
+        return this.known.of(message).decode(message.body());
     }
 
     /**
