@@ -4,7 +4,6 @@
  */
 package io.celery4j.protocol;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +18,11 @@ import java.util.Optional;
  * <p>A part that was not given is read as an empty one, which is how a
  * producer that omits it is understood. Every read hands out a copy, so the
  * body cannot be changed through what it returns.</p>
+ *
+ * <p>What it is given is held as given, and what it hands out is a view of
+ * that which refuses to be written to. A caller that keeps hold of the
+ * collection it passed, and changes it later, changes what this holds; pass
+ * one nobody else keeps.</p>
  *
  * @since 0.1.0
  */
@@ -82,13 +86,7 @@ public final class TaskBody {
      * @return An unmodifiable copy, empty when none were given
      */
     public List<Object> args() {
-        final List<Object> copy;
-        if (this.positional == null) {
-            copy = List.of();
-        } else {
-            copy = Collections.unmodifiableList(new ArrayList<>(this.positional));
-        }
-        return copy;
+        return TaskBody.copied(this.positional);
     }
 
     /**
@@ -117,13 +115,7 @@ public final class TaskBody {
      * @return The field, empty when it is absent or null
      */
     public Optional<Object> embedded(final String name) {
-        final Optional<Object> found;
-        if (this.workflow == null) {
-            found = Optional.empty();
-        } else {
-            found = Optional.ofNullable(this.workflow.get(name));
-        }
-        return found;
+        return Optional.ofNullable(TaskBody.copy(this.workflow).get(name));
     }
 
     /**
@@ -160,13 +152,23 @@ public final class TaskBody {
         );
     }
 
-    private static Map<String, Object> copy(final Map<String, Object> values) {
-        final Map<String, Object> copy;
+    private static List<Object> copied(final List<Object> values) {
+        final List<Object> view;
         if (values == null) {
-            copy = Map.of();
+            view = List.of();
         } else {
-            copy = Collections.unmodifiableMap(new LinkedHashMap<>(values));
+            view = Collections.unmodifiableList(values);
         }
-        return copy;
+        return view;
+    }
+
+    private static Map<String, Object> copy(final Map<String, Object> values) {
+        final Map<String, Object> view;
+        if (values == null) {
+            view = Map.of();
+        } else {
+            view = Collections.unmodifiableMap(values);
+        }
+        return view;
     }
 }

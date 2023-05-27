@@ -142,7 +142,7 @@ public final class TaskResult {
      * @return An unmodifiable copy of the fields
      */
     public Map<String, Object> asMap() {
-        return Collections.unmodifiableMap(new LinkedHashMap<>(this.values));
+        return Collections.unmodifiableMap(this.values);
     }
 
     @Override

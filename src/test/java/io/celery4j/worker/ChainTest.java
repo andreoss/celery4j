@@ -126,6 +126,28 @@ final class ChainTest {
     }
 
     @Test
+    void takesTheTaskBeforeAsTheRootWhenTheMessageNamesNone() {
+        final Broker broker = ChainTest.broker();
+        final Message chained = ChainTest.chained(List.of(ChainTest.link(ChainTest.LATER, false)));
+        broker.send(
+            new Message(
+                chained.properties(),
+                chained.headers().with(MessageHeaders.ROOT, null),
+                chained.body()
+            ),
+            ChainTest.QUEUE
+        );
+        ChainTest.worker(broker).once(ChainTest.QUEUE, ChainTest.WAIT);
+        Assertions.assertEquals(
+            Optional.of(ChainTest.ID),
+            broker.receive(ChainTest.LATER, ChainTest.WAIT)
+                .orElseThrow()
+                .headers()
+                .text(MessageHeaders.ROOT)
+        );
+    }
+
+    @Test
     void sendsNothingForAMessageOfTheOlderVersion() {
         final Broker broker = ChainTest.broker();
         broker.send(

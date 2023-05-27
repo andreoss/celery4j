@@ -293,7 +293,7 @@ final class ConfiguredServicesIT {
         return new RabbitMQContainer(
             DockerImageName.parse("docker.io/library/rabbitmq:3.13-alpine")
                 .asCompatibleSubstituteFor("rabbitmq")
-        );
+        ).withStartupTimeout(Duration.ofMinutes(3L));
     }
 
     private static Message message(final String queue) {

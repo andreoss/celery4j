@@ -88,12 +88,16 @@ public final class JsonMessageCodec implements MessageCodec {
             MessageProperties.TYPE,
             properties.text(MessageProperties.TYPE).orElse(MessageProperties.JSON)
         );
-        envelope.set(JsonMessageCodec.HEADERS, this.mapper.valueToTree(message.headers().asMap()));
-        envelope.set(JsonMessageCodec.PROPERTIES, this.mapper.valueToTree(rest));
         try {
+            envelope.set(
+                JsonMessageCodec.HEADERS, this.mapper.valueToTree(message.headers().asMap())
+            );
+            envelope.set(JsonMessageCodec.PROPERTIES, this.mapper.valueToTree(rest));
             return this.mapper.writeValueAsBytes(envelope);
         } catch (final JsonProcessingException ex) {
             throw new ProtocolException("message cannot be written as JSON", ex);
+        } catch (final IllegalArgumentException ex) {
+            throw new ProtocolException("message holds a value no JSON can hold", ex);
         }
     }
 

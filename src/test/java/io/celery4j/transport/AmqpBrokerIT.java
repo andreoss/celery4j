@@ -8,6 +8,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConnectionFactory;
 import io.celery4j.protocol.MessageHeaders;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
@@ -36,7 +37,7 @@ final class AmqpBrokerIT implements BrokerContract {
     private static final RabbitMQContainer SERVICE = new RabbitMQContainer(
         DockerImageName.parse("docker.io/library/rabbitmq:3.13-alpine")
             .asCompatibleSubstituteFor("rabbitmq")
-    );
+    ).withStartupTimeout(Duration.ofMinutes(3L));
 
     @Override
     public Broker broker() {
@@ -88,6 +89,19 @@ final class AmqpBrokerIT implements BrokerContract {
                     .toString()
                     .contains(queue)
             );
+        }
+    }
+
+    @Test
+    void stopsWaitingWhenTheThreadIsInterrupted() {
+        try (Broker broker = this.broker()) {
+            Thread.currentThread().interrupt();
+            Assertions.assertThrows(
+                TransportException.class,
+                () -> broker.receive(this.queue(), Duration.ofSeconds(2L))
+            );
+        } finally {
+            Thread.interrupted();
         }
     }
 

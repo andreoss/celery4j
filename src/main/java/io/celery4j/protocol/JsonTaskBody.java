@@ -72,14 +72,16 @@ public final class JsonTaskBody implements TaskBodyCodec {
     @Override
     public String encode(final TaskBody body) throws ProtocolException {
         final ArrayNode parts = this.mapper.createArrayNode();
-        parts.add(this.mapper.valueToTree(body.args()));
-        parts.add(this.mapper.valueToTree(body.kwargs()));
-        parts.add(this.mapper.valueToTree(body.embed()));
         final byte[] json;
         try {
+            parts.add(this.mapper.valueToTree(body.args()));
+            parts.add(this.mapper.valueToTree(body.kwargs()));
+            parts.add(this.mapper.valueToTree(body.embed()));
             json = this.mapper.writeValueAsBytes(parts);
         } catch (final JsonProcessingException ex) {
             throw new ProtocolException("body cannot be written as JSON", ex);
+        } catch (final IllegalArgumentException ex) {
+            throw new ProtocolException("body holds a value no JSON can hold", ex);
         }
         return Base64.getEncoder().encodeToString(json);
     }

@@ -4,9 +4,7 @@
  */
 package io.celery4j.protocol;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -17,6 +15,11 @@ import java.util.Objects;
  *
  * <p>Every read hands out a copy, so the call cannot be changed through what
  * it returns.</p>
+ *
+ * <p>What it is given is held as given, and what it hands out is a view of
+ * that which refuses to be written to. A caller that keeps hold of the
+ * collection it passed, and changes it later, changes what this holds; pass
+ * one nobody else keeps.</p>
  *
  * @since 0.1.0
  */
@@ -83,31 +86,19 @@ public final class Task {
     /**
      * Positional arguments.
      *
-     * @return An unmodifiable copy, empty when none were given
+     * @return A view nobody can write through, empty when none were given
      */
     public List<Object> args() {
-        final List<Object> copy;
-        if (this.positional == null) {
-            copy = List.of();
-        } else {
-            copy = Collections.unmodifiableList(new ArrayList<>(this.positional));
-        }
-        return copy;
+        return Task.copied(this.positional);
     }
 
     /**
      * Keyword arguments.
      *
-     * @return An unmodifiable copy, empty when none were given
+     * @return A view nobody can write through, empty when none were given
      */
     public Map<String, Object> kwargs() {
-        final Map<String, Object> copy;
-        if (this.keyword == null) {
-            copy = Map.of();
-        } else {
-            copy = Collections.unmodifiableMap(new LinkedHashMap<>(this.keyword));
-        }
-        return copy;
+        return Task.copied(this.keyword);
     }
 
     /**
@@ -137,5 +128,25 @@ public final class Task {
     @Override
     public String toString() {
         return String.format("Task(%s, %s, %s)", this.key, this.label, this.args());
+    }
+
+    private static List<Object> copied(final List<Object> given) {
+        final List<Object> view;
+        if (given == null) {
+            view = List.of();
+        } else {
+            view = Collections.unmodifiableList(given);
+        }
+        return view;
+    }
+
+    private static Map<String, Object> copied(final Map<String, Object> given) {
+        final Map<String, Object> view;
+        if (given == null) {
+            view = Map.of();
+        } else {
+            view = Collections.unmodifiableMap(given);
+        }
+        return view;
     }
 }

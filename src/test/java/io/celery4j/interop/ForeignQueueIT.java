@@ -148,7 +148,8 @@ final class ForeignQueueIT {
     private static RabbitMQContainer service() {
         return new RabbitMQContainer(ForeignQueueIT.queueImage())
             .withNetwork(ForeignQueueIT.NETWORK)
-            .withNetworkAliases("mq");
+            .withNetworkAliases("mq")
+            .withStartupTimeout(Duration.ofMinutes(3L));
     }
 
     private static DockerImageName queueImage() {

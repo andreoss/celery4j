@@ -17,6 +17,11 @@ import java.util.Optional;
  * survives a decode and encode cycle. The map is read as it was given, so pass
  * one nobody else holds.</p>
  *
+ * <p>What it is given is held as given, and what it hands out is a view of
+ * that which refuses to be written to. A caller that keeps hold of the
+ * collection it passed, and changes it later, changes what this holds; pass
+ * one nobody else keeps.</p>
+ *
  * @since 0.1.0
  */
 public final class MessageProperties {
@@ -162,10 +167,10 @@ public final class MessageProperties {
     /**
      * Every property, in the order it was set or decoded.
      *
-     * @return An unmodifiable copy of the properties
+     * @return A view of them nobody can write through
      */
     public Map<String, Object> asMap() {
-        return Collections.unmodifiableMap(new LinkedHashMap<>(this.values));
+        return Collections.unmodifiableMap(this.values);
     }
 
     @Override

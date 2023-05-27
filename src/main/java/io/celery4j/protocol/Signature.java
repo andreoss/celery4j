@@ -21,6 +21,11 @@ import java.util.UUID;
  * of the arguments already there, unless the call says it wants none of
  * that.</p>
  *
+ * <p>What it is given is held as given, and what it hands out is a view of
+ * that which refuses to be written to. A caller that keeps hold of the
+ * collection it passed, and changes it later, changes what this holds; pass
+ * one nobody else keeps.</p>
+ *
  * @since 1.0.0
  */
 public final class Signature {
@@ -181,7 +186,7 @@ public final class Signature {
      * @return An unmodifiable copy
      */
     public Map<String, Object> asMap() {
-        return Signature.map(this.values);
+        return Collections.unmodifiableMap(this.values);
     }
 
     private static List<Object> list(final Object value) {

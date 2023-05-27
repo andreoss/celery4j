@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.celery4j</groupId>
   <artifactId>celery4j</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <packaging>jar</packaging>
   <name>celery4j</name>
   <description>Java client and worker for the distributed task queue protocol</description>
@@ -23,6 +23,8 @@
     <jackson.version>2.15.1</jackson.version>
     <junit.version>5.9.3</junit.version>
     <coverage.minimum>0.85</coverage.minimum>
+    <coverage.live.lines>0.99</coverage.live.lines>
+    <coverage.live.branches>0.94</coverage.live.branches>
     <jedis.version>4.4.1</jedis.version>
     <amqp.version>5.17.0</amqp.version>
     <testcontainers.version>1.18.1</testcontainers.version>
@@ -285,12 +287,12 @@
                         <limit>
                           <counter>LINE</counter>
                           <value>COVEREDRATIO</value>
-                          <minimum>${coverage.minimum}</minimum>
+                          <minimum>${coverage.live.lines}</minimum>
                         </limit>
                         <limit>
                           <counter>BRANCH</counter>
                           <value>COVEREDRATIO</value>
-                          <minimum>${coverage.minimum}</minimum>
+                          <minimum>${coverage.live.branches}</minimum>
                         </limit>
                       </limits>
                     </rule>

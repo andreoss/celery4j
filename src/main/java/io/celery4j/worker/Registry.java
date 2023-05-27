@@ -15,6 +15,11 @@ import java.util.Set;
  * task would be running whatever a producer named, which is not a worker but
  * a hole.</p>
  *
+ * <p>What it is given is held as given, and what it hands out is a view of
+ * that which refuses to be written to. A caller that keeps hold of the
+ * collection it passed, and changes it later, changes what this holds; pass
+ * one nobody else keeps.</p>
+ *
  * @since 0.1.0
  */
 public final class Registry {

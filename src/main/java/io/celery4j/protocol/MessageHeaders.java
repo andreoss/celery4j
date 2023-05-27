@@ -20,6 +20,11 @@ import java.util.Optional;
  * <p>The map is read as it was given. Pass one nobody else holds, since this
  * type copies on every read rather than on construction.</p>
  *
+ * <p>What it is given is held as given, and what it hands out is a view of
+ * that which refuses to be written to. A caller that keeps hold of the
+ * collection it passed, and changes it later, changes what this holds; pass
+ * one nobody else keeps.</p>
+ *
  * @since 0.1.0
  */
 public final class MessageHeaders {
@@ -179,10 +184,10 @@ public final class MessageHeaders {
     /**
      * Every header, in the order it was set or decoded.
      *
-     * @return An unmodifiable copy of the headers
+     * @return A view of them nobody can write through
      */
     public Map<String, Object> asMap() {
-        return Collections.unmodifiableMap(new LinkedHashMap<>(this.values));
+        return Collections.unmodifiableMap(this.values);
     }
 
     @Override

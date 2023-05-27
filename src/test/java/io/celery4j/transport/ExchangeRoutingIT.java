@@ -52,7 +52,7 @@ final class ExchangeRoutingIT {
     private static final RabbitMQContainer MESSAGES = new RabbitMQContainer(
         DockerImageName.parse("docker.io/library/rabbitmq:3.13-alpine")
             .asCompatibleSubstituteFor("rabbitmq")
-    );
+    ).withStartupTimeout(Duration.ofMinutes(3L));
 
     @Test
     void carriesATaskThroughANamedExchange() {
