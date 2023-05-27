@@ -205,6 +205,7 @@
             <version>3.1.0</version>
             <configuration>
               <groups>live</groups>
+              <argLine>${live.argLine}</argLine>
             </configuration>
             <executions>
               <execution>
@@ -213,6 +214,88 @@
                   <goal>integration-test</goal>
                   <goal>verify</goal>
                 </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.10</version>
+            <executions>
+              <execution>
+                <id>coverage</id>
+                <phase>verify</phase>
+                <configuration>
+                  <skip>true</skip>
+                </configuration>
+              </execution>
+              <execution>
+                <id>agent-live</id>
+                <phase>pre-integration-test</phase>
+                <goals>
+                  <goal>prepare-agent-integration</goal>
+                </goals>
+                <configuration>
+                  <propertyName>live.argLine</propertyName>
+                  <destFile>${project.build.directory}/jacoco-live.exec</destFile>
+                </configuration>
+              </execution>
+              <execution>
+                <id>gathered</id>
+                <phase>post-integration-test</phase>
+                <goals>
+                  <goal>merge</goal>
+                </goals>
+                <configuration>
+                  <destFile>${project.build.directory}/jacoco-all.exec</destFile>
+                  <fileSets>
+                    <fileSet>
+                      <directory>${project.build.directory}</directory>
+                      <includes>
+                        <include>jacoco.exec</include>
+                        <include>jacoco-live.exec</include>
+                      </includes>
+                    </fileSet>
+                  </fileSets>
+                </configuration>
+              </execution>
+              <execution>
+                <id>report-live</id>
+                <phase>post-integration-test</phase>
+                <goals>
+                  <goal>report</goal>
+                </goals>
+                <configuration>
+                  <dataFile>${project.build.directory}/jacoco-all.exec</dataFile>
+                  <outputDirectory>${project.build.directory}/site/jacoco-all</outputDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>coverage-live</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <configuration>
+                  <dataFile>${project.build.directory}/jacoco-all.exec</dataFile>
+                  <rules>
+                    <rule>
+                      <element>BUNDLE</element>
+                      <limits>
+                        <limit>
+                          <counter>LINE</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.minimum}</minimum>
+                        </limit>
+                        <limit>
+                          <counter>BRANCH</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.minimum}</minimum>
+                        </limit>
+                      </limits>
+                    </rule>
+                  </rules>
+                </configuration>
               </execution>
             </executions>
           </plugin>
