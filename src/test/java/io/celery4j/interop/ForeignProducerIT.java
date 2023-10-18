@@ -202,7 +202,7 @@ final class ForeignProducerIT {
             return jedis.brpop(
                 (double) ForeignProducerIT.PATIENCE.toSeconds(),
                 ForeignProducerIT.QUEUE.getBytes(StandardCharsets.UTF_8)
-            ).get(1);
+            ).getValue();
         }
     }
 
