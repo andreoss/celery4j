@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2024
  * SPDX-License-Identifier: MIT
  */
 package io.celery4j.transport;
@@ -32,6 +32,11 @@ public final class Reconnecting implements Broker {
      * How long the first wait is when nothing else was said.
      */
     private static final Duration FIRST = Duration.ofMillis(100L);
+
+    /**
+     * How long a wait may grow to, however many attempts have failed.
+     */
+    private static final Duration LONGEST = Duration.ofMinutes(1L);
 
     /**
      * Broker underneath.
@@ -112,7 +117,7 @@ public final class Reconnecting implements Broker {
             } catch (final TransportException ex) {
                 last = Optional.of(ex);
                 if (attempt + 1 < this.attempts) {
-                    Reconnecting.pause(this.first.multipliedBy(1L << attempt));
+                    Reconnecting.pause(Reconnecting.waited(this.first, attempt));
                 }
             }
         }
@@ -120,6 +125,17 @@ public final class Reconnecting implements Broker {
             throw last.orElseThrow();
         }
         return done;
+    }
+
+    private static Duration waited(final Duration first, final int attempt) {
+        final Duration wait = first.multipliedBy(1L << attempt);
+        final Duration capped;
+        if (wait.compareTo(Reconnecting.LONGEST) > 0) {
+            capped = Reconnecting.LONGEST;
+        } else {
+            capped = wait;
+        }
+        return capped;
     }
 
     private static void pause(final Duration wait) {

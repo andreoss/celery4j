@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2024
  * SPDX-License-Identifier: MIT
  */
 package io.celery4j.interop;
