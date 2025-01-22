@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.celery4j</groupId>
   <artifactId>celery4j</artifactId>
-  <version>1.1.0</version>
+  <version>1.1.1</version>
   <packaging>jar</packaging>
   <name>celery4j</name>
   <description>Java client and worker for the distributed task queue protocol</description>
@@ -20,14 +20,14 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.release>17</maven.compiler.release>
-    <jackson.version>2.16.1</jackson.version>
-    <junit.version>5.10.2</junit.version>
+    <jackson.version>2.18.2</jackson.version>
+    <junit.version>5.11.4</junit.version>
     <coverage.minimum>0.85</coverage.minimum>
     <coverage.live.lines>0.99</coverage.live.lines>
     <coverage.live.branches>0.94</coverage.live.branches>
-    <jedis.version>5.1.0</jedis.version>
-    <amqp.version>5.20.0</amqp.version>
-    <testcontainers.version>1.19.5</testcontainers.version>
+    <jedis.version>5.2.0</jedis.version>
+    <amqp.version>5.24.0</amqp.version>
+    <testcontainers.version>1.20.4</testcontainers.version>
   </properties>
   <dependencies>
     <dependency>
@@ -58,7 +58,7 @@
     <dependency>
       <groupId>com.github.docker-java</groupId>
       <artifactId>docker-java-api</artifactId>
-      <version>3.3.4</version>
+      <version>3.4.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -97,12 +97,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.12.1</version>
+        <version>3.13.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.2</version>
         <configuration>
           <excludedGroups>live</excludedGroups>
         </configuration>
@@ -110,7 +110,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.6.3</version>
+        <version>3.11.2</version>
         <configuration>
           <doclint>all</doclint>
           <failOnWarnings>true</failOnWarnings>
@@ -129,7 +129,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.11</version>
+        <version>0.8.12</version>
         <executions>
           <execution>
             <id>agent</id>
@@ -180,7 +180,7 @@
       <plugin>
         <groupId>com.qulice</groupId>
         <artifactId>qulice-maven-plugin</artifactId>
-        <version>0.22.0</version>
+        <version>0.23.0</version>
         <configuration>
           <license>none</license>
         </configuration>
@@ -204,7 +204,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
-            <version>3.2.5</version>
+            <version>3.5.2</version>
             <configuration>
               <groups>live</groups>
               <argLine>${live.argLine}</argLine>
@@ -222,7 +222,7 @@
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.11</version>
+            <version>0.8.12</version>
             <executions>
               <execution>
                 <id>coverage</id>

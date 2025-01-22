@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025
  * SPDX-License-Identifier: MIT
  */
 package io.celery4j.worker;
@@ -54,11 +54,13 @@ final class Requests {
      * @return The queue name
      */
     String queue(final List<String> queues) {
-        String name = queues.get(0);
         final Object delivery = this.message.properties().asMap().get(MessageProperties.DELIVERY);
+        final String name;
         if (delivery instanceof Map<?, ?> info
             && info.get(MessageProperties.ROUTING) instanceof String routed) {
             name = routed;
+        } else {
+            name = queues.get(0);
         }
         return name;
     }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025
  * SPDX-License-Identifier: MIT
  */
 package io.celery4j.worker;
@@ -44,9 +44,11 @@ final class Failures {
      * @return The failure itself
      */
     Throwable itself() {
-        Throwable found = this.failure;
+        final Throwable found;
         if (this.failure instanceof CompletionException && this.failure.getCause() != null) {
             found = this.failure.getCause();
+        } else {
+            found = this.failure;
         }
         return found;
     }
