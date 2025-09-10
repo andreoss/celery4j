@@ -119,9 +119,16 @@ public final class AmqpMessages {
     }
 
     private Charset charset(final Message message) {
-        return Charset.forName(
-            message.properties().text(MessageProperties.ENCODING).orElse(this.encoding)
-        );
+        final String named = message.properties()
+            .text(MessageProperties.ENCODING)
+            .orElse(this.encoding);
+        final Charset found;
+        if (Charset.isSupported(named)) {
+            found = Charset.forName(named);
+        } else {
+            found = Charset.forName(this.encoding);
+        }
+        return found;
     }
 
     private Map<String, Object> delivery(
