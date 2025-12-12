@@ -105,7 +105,7 @@ public final class Fleet implements AutoCloseable {
 
     private long loop(final List<String> queues, final Duration timeout) {
         long handled = 0L;
-        while (!this.stopped.get()) {
+        while (!this.stopped.get() && !Thread.currentThread().isInterrupted()) {
             if (this.worker.once(queues, timeout).isPresent()) {
                 handled = handled + 1L;
             }
