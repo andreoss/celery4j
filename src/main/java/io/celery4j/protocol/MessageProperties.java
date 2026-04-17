@@ -1,11 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026
  * SPDX-License-Identifier: MIT
  */
 package io.celery4j.protocol;
 
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -159,9 +158,7 @@ public final class MessageProperties {
      * @return Properties carrying that value
      */
     public MessageProperties with(final String name, final Object value) {
-        final Map<String, Object> extended = new LinkedHashMap<>(this.values);
-        extended.put(name, value);
-        return new MessageProperties(extended);
+        return new MessageProperties(Fields.extended(this.values, name, value));
     }
 
     /**

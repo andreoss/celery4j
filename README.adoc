@@ -23,4 +23,4 @@ live cases.
 
 == Licence
 
-Copyright (c) 2023-2025. MIT, see link:LICENSE.txt[].
+Copyright (c) 2023-2026. MIT, see link:LICENSE.txt[].

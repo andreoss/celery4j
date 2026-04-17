@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026
  * SPDX-License-Identifier: MIT
  */
 package io.celery4j.protocol;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -18,6 +19,23 @@ final class Fields {
      * Ctor.
      */
     private Fields() {
+    }
+
+    /**
+     * The same fields with one of them set, in the order they were set.
+     *
+     * @param values Fields to start from
+     * @param name Name of the field to set
+     * @param value Value to set, which may be null for a field that is written
+     *  and means nothing
+     * @return A map holding all of them
+     */
+    static Map<String, Object> extended(
+        final Map<String, Object> values, final String name, final Object value
+    ) {
+        final Map<String, Object> copy = new LinkedHashMap<>(values);
+        copy.put(name, value);
+        return copy;
     }
 
     /**
