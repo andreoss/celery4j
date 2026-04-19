@@ -11,6 +11,54 @@ behind. No bridge, no adapter, no Python in the way.
   fleet of them, and a client to ask with
 * Checked against a real Celery worker and producer in containers
 
+== Quick start
+
+Send a task to a Celery worker:
+
+[source,java]
+----
+try (
+    Broker broker = new RedisBroker(new JedisPool(URI.create("redis://localhost:6379/0")));
+    Backend backend = new RedisBackend(new JedisPool(URI.create("redis://localhost:6379/0")))
+) {
+    Object sum = new Client(broker, backend)
+        .delay("examples.add", 2, 3)
+        .value(Duration.ofSeconds(10))
+        .orElseThrow();
+}
+----
+
+Run the tasks Celery sends, by name:
+
+[source,java]
+----
+new Worker(
+    broker,
+    backend,
+    new Registry(Map.of("examples.add", task -> (int) task.args().get(0) + (int) task.args().get(1)))
+).some("celery", Duration.ofSeconds(5), 10);
+----
+
+== Examples
+
+`examples/` holds one app on each side of the wire:
+
+* `CeleryApp.java`, which produces or consumes with this library
+* `celery_app.py`, the same app in Python
+
+Start a broker, then run either side:
+
+----
+docker run -d -p 6379:6379 redis:7-alpine
+
+mvn -q package -DskipTests
+mvn -q dependency:build-classpath -Dmdep.outputFile=cp.txt
+java -cp "target/classes:$(cat cp.txt)" examples/CeleryApp.java consume   # or produce
+
+(cd examples && celery -A celery_app worker)    # the other side
+(cd examples && python celery_app.py produce)
+----
+
 == Build
 
 ----
