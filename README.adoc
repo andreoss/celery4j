@@ -11,6 +11,17 @@ behind. No bridge, no adapter, no Python in the way.
   fleet of them, and a client to ask with
 * Checked against a real Celery worker and producer in containers
 
+== Install
+
+[source,xml]
+----
+<dependency>
+  <groupId>io.github.andreoss</groupId>
+  <artifactId>celery4j</artifactId>
+  <version>1.3.0</version>
+</dependency>
+----
+
 == Quick start
 
 Send a task to a Celery worker:
