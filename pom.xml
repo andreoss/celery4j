@@ -20,13 +20,13 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.release>17</maven.compiler.release>
-    <jackson.version>2.21.2</jackson.version>
+    <jackson.version>2.22.2</jackson.version>
     <junit.version>5.14.3</junit.version>
     <coverage.minimum>0.85</coverage.minimum>
     <coverage.live.lines>0.99</coverage.live.lines>
     <coverage.live.branches>0.94</coverage.live.branches>
     <jedis.version>5.2.0</jedis.version>
-    <amqp.version>5.30.0</amqp.version>
+    <amqp.version>5.36.0</amqp.version>
     <testcontainers.version>1.21.4</testcontainers.version>
   </properties>
   <dependencies>
