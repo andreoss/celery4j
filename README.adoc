@@ -18,7 +18,7 @@ behind. No bridge, no adapter, no Python in the way.
 <dependency>
   <groupId>io.github.andreoss</groupId>
   <artifactId>celery4j</artifactId>
-  <version>1.3.0</version>
+  <version>1.3.1</version>
 </dependency>
 ----
 
