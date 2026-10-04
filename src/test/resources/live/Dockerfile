@@ -1,6 +1,6 @@
 FROM docker.io/library/python:3.12-slim
 
-RUN pip install --no-cache-dir "celery[redis]==5.4.0" "pyyaml==6.0.2" \
+RUN pip install --no-cache-dir "celery[redis]==5.6.3" "pyyaml==6.0.3" \
  && useradd --create-home --uid 1000 worker
 
 COPY tasks.py /app/tasks.py
