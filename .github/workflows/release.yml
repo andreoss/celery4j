@@ -1,8 +1,11 @@
 name: release
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      publish:
+        description: send the deployment to Central rather than only validating it
+        type: boolean
+        default: false
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -18,7 +21,7 @@ jobs:
           server-password: CENTRAL_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
-      - run: mvn -B -Prelease deploy
+      - run: mvn -B -Prelease -Dcentral.autoPublish=${{ inputs.publish }} deploy
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
