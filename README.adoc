@@ -13,6 +13,8 @@ behind. No bridge, no adapter, no Python in the way.
 
 == Install
 
+link:https://central.sonatype.com/artifact/io.github.andreoss/celery4j[io.github.andreoss:celery4j] is on Maven Central.
+
 [source,xml]
 ----
 <dependency>
